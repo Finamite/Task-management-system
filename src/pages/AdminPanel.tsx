@@ -442,134 +442,134 @@ const AdminPanel: React.FC = () => {
 
       {/* Edit User Modal */}
       {editingUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="p-6 rounded-lg max-w-2xl w-full mx-4 max-h-96 overflow-y-auto" style={{ backgroundColor: 'var(--color-surface)' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold" style={{ color: 'var(--color-text)' }}>
-                Edit User - {editingUser.username}
-              </h3>
-              <button
-                onClick={() => {
-                  setEditingUser(null);
-                  resetForm();
-                }}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X size={20} />
-              </button>
-            </div>
+        // <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        //   <div className="p-6 rounded-lg max-w-2xl w-full mx-4 max-h-96 overflow-y-auto" style={{ backgroundColor: 'var(--color-surface)' }}>
+        //     <div className="flex items-center justify-between mb-4">
+        //       <h3 className="text-lg font-semibold" style={{ color: 'var(--color-text)' }}>
+        //         Edit User - {editingUser.username}
+        //       </h3>
+        //       <button
+        //         onClick={() => {
+        //           setEditingUser(null);
+        //           resetForm();
+        //         }}
+        //         className="text-gray-500 hover:text-gray-700"
+        //       >
+        //         <X size={20} />
+        //       </button>
+        //     </div>
 
-            <form onSubmit={handleUpdateUser} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text)' }}>
-                    Username *
-                  </label>
-                  <input
-                    type="text"
-                    name="username"
-                    value={formData.username}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border rounded-lg"
-                    style={{
-                      backgroundColor: 'var(--color-background)',
-                      borderColor: 'var(--color-border)',
-                      color: 'var(--color-text)'
-                    }}
-                  />
-                </div>
+        //     <form onSubmit={handleUpdateUser} className="space-y-4">
+        //       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        //         <div>
+        //           <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text)' }}>
+        //             Username *
+        //           </label>
+        //           <input
+        //             type="text"
+        //             name="username"
+        //             value={formData.username}
+        //             onChange={handleInputChange}
+        //             required
+        //             className="w-full px-3 py-2 border rounded-lg"
+        //             style={{
+        //               backgroundColor: 'var(--color-background)',
+        //               borderColor: 'var(--color-border)',
+        //               color: 'var(--color-text)'
+        //             }}
+        //           />
+        //         </div>
 
-                <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text)' }}>
-                    Email *
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border rounded-lg"
-                    style={{
-                      backgroundColor: 'var(--color-background)',
-                      borderColor: 'var(--color-border)',
-                      color: 'var(--color-text)'
-                    }}
-                  />
-                </div>
+        //         <div>
+        //           <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text)' }}>
+        //             Email *
+        //           </label>
+        //           <input
+        //             type="email"
+        //             name="email"
+        //             value={formData.email}
+        //             onChange={handleInputChange}
+        //             required
+        //             className="w-full px-3 py-2 border rounded-lg"
+        //             style={{
+        //               backgroundColor: 'var(--color-background)',
+        //               borderColor: 'var(--color-border)',
+        //               color: 'var(--color-text)'
+        //             }}
+        //           />
+        //         </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text)' }}>
-                    Role
-                  </label>
-                  <select
-                    name="role"
-                    value={formData.role}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    style={{
-                      backgroundColor: 'var(--color-background)',
-                      borderColor: 'var(--color-border)',
-                      color: 'var(--color-text)'
-                    }}
-                  >
-                    <option value="employee">Employee</option>
-                    <option value="manager">Manager</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </div>
-              </div>
+        //         <div className="md:col-span-2">
+        //           <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text)' }}>
+        //             Role
+        //           </label>
+        //           <select
+        //             name="role"
+        //             value={formData.role}
+        //             onChange={handleInputChange}
+        //             className="w-full px-3 py-2 border rounded-lg"
+        //             style={{
+        //               backgroundColor: 'var(--color-background)',
+        //               borderColor: 'var(--color-border)',
+        //               color: 'var(--color-text)'
+        //             }}
+        //           >
+        //             <option value="employee">Employee</option>
+        //             <option value="manager">Manager</option>
+        //             <option value="admin">Admin</option>
+        //           </select>
+        //         </div>
+        //       </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text)' }}>
-                  Permissions
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {Object.entries(formData.permissions).map(([key, value]) => (
-                    <label key={key} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        name={`permissions.${key}`}
-                        checked={value}
-                        onChange={handleInputChange}
-                        className="mr-2"
-                      />
-                      <span className="text-sm" style={{ color: 'var(--color-text)' }}>
-                        {key.replace('can', '').replace(/([A-Z])/g, ' $1').trim()}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
+        //       <div>
+        //         <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text)' }}>
+        //           Permissions
+        //         </label>
+        //         <div className="grid grid-cols-2 gap-2">
+        //           {Object.entries(formData.permissions).map(([key, value]) => (
+        //             <label key={key} className="flex items-center">
+        //               <input
+        //                 type="checkbox"
+        //                 name={`permissions.${key}`}
+        //                 checked={value}
+        //                 onChange={handleInputChange}
+        //                 className="mr-2"
+        //               />
+        //               <span className="text-sm" style={{ color: 'var(--color-text)' }}>
+        //                 {key.replace('can', '').replace(/([A-Z])/g, ' $1').trim()}
+        //               </span>
+        //             </label>
+        //           ))}
+        //         </div>
+        //       </div>
 
-              <div className="flex space-x-3 pt-4">
-                <button
-                  type="submit"
-                  className="flex-1 py-2 px-4 rounded-lg text-white font-medium"
-                  style={{ backgroundColor: 'var(--color-primary)' }}
-                >
-                  <Save size={16} className="inline mr-2" />
-                  Update User
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingUser(null);
-                    resetForm();
-                  }}
-                  className="flex-1 py-2 px-4 rounded-lg border font-medium"
-                  style={{
-                    borderColor: 'var(--color-border)',
-                    color: 'var(--color-text)'
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        //       <div className="flex space-x-3 pt-4">
+        //         <button
+        //           type="submit"
+        //           className="flex-1 py-2 px-4 rounded-lg text-white font-medium"
+        //           style={{ backgroundColor: 'var(--color-primary)' }}
+        //         >
+        //           <Save size={16} className="inline mr-2" />
+        //           Update User
+        //         </button>
+        //         <button
+        //           type="button"
+        //           onClick={() => {
+        //             setEditingUser(null);
+        //             resetForm();
+        //           }}
+        //           className="flex-1 py-2 px-4 rounded-lg border font-medium"
+        //           style={{
+        //             borderColor: 'var(--color-border)',
+        //             color: 'var(--color-text)'
+        //           }}
+        //         >
+        //           Cancel
+        //         </button>
+        //       </div>
+        //     </form>
+        //   </div>
+        // </div>
       )}
     </div>
   );
