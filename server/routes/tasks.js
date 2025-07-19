@@ -4,7 +4,7 @@ import User from '../models/User.js';
 
 const router = express.Router();
 
-// --- Helper Functions for Date Calculations (No Changes Needed for these) ---
+// --- Helper Functions for Date Calculations ---
 
 // Helper function to get all dates for daily tasks within a range
 const getDailyTaskDates = (startDate, endDate, includeSunday) => {
@@ -88,6 +88,27 @@ const getMonthlyTaskDates = (startDate, endDate, monthlyDay, includeSunday) => {
   return dates;
 };
 
+// Helper function to get all dates for quarterly tasks (4 tasks for one year)
+const getQuarterlyTaskDates = (startDate, includeSunday = true) => {
+  const dates = [];
+  const start = new Date(startDate);
+  
+  // Create 4 quarterly tasks (every 3 months)
+  for (let i = 0; i < 4; i++) {
+    const quarterlyDate = new Date(start);
+    quarterlyDate.setMonth(start.getMonth() + (i * 3)); // Add 3 months for each quarter
+    
+    // Handle Sunday exclusion for quarterly tasks
+    if (!includeSunday && quarterlyDate.getDay() === 0) { // 0 is Sunday
+      quarterlyDate.setDate(quarterlyDate.getDate() - 1); // Move to Saturday
+    }
+    
+    dates.push(quarterlyDate);
+  }
+  
+  return dates;
+};
+
 // Helper function to get all dates for yearly tasks based on duration
 const getYearlyTaskDates = (startDate, yearlyDuration, includeSunday = true) => {
   const dates = [];
@@ -151,6 +172,16 @@ const calculateNextDueDate = (task) => {
       if (task.parentTaskInfo && task.parentTaskInfo.includeSunday === false) {
         if (nextDueDate.getDay() === 0) { // 0 is Sunday
           nextDueDate.setDate(nextDueDate.getDate() + 1); // Move to Monday
+        }
+      }
+      break;
+    case 'quarterly':
+      // Advance by 3 months (one quarter)
+      nextDueDate.setMonth(nextDueDate.getMonth() + 3);
+      // If parentTaskInfo exists and Sundays are excluded, skip Sunday
+      if (task.parentTaskInfo && task.parentTaskInfo.includeSunday === false) {
+        if (nextDueDate.getDay() === 0) { // 0 is Sunday
+          nextDueDate.setDate(nextDueDate.getDate() - 1); // Move to Saturday
         }
       }
       break;
@@ -266,7 +297,7 @@ router.get('/pending-recurring', async (req, res) => {
 
     const query = {
       isActive: true,
-      taskType: { $in: ['daily', 'weekly', 'monthly', 'yearly'] }, // Only recurring types
+      taskType: { $in: ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'] }, // Include quarterly
       status: { $in: ['pending', 'overdue'] }, // Only pending or overdue
       dueDate: { $lte: fiveDaysFromNow } // Due today or within the next 5 days (or overdue)
     };
@@ -325,6 +356,10 @@ router.post('/create-scheduled', async (req, res) => {
         case 'monthly':
           taskDates = getMonthlyTaskDates(startDate, endDate, taskData.monthlyDay || 1, taskData.includeSunday);
           break;
+        case 'quarterly':
+          // For quarterly tasks, create 4 tasks for one year (no forever option)
+          taskDates = getQuarterlyTaskDates(startDate, taskData.includeSunday);
+          break;
         case 'yearly':
           // For yearly tasks, use the exact yearlyDuration specified
           if (taskData.isForever) {
@@ -352,7 +387,7 @@ router.post('/create-scheduled', async (req, res) => {
         assignedTo: taskData.assignedTo,
         priority: taskData.priority,
         dueDate: taskDate, // Set the specific due date for this instance
-        attachments: taskData.attachments || [], // *** MODIFIED: Pass attachments here ***
+        attachments: taskData.attachments || [], // Pass attachments here
         isActive: true,
         status: 'pending', // New tasks are always pending
         taskGroupId: taskGroupId, // Link to the recurring task series
@@ -402,7 +437,7 @@ router.post('/', async (req, res) => {
 
     const task = new Task({
       ...taskData,
-      attachments: taskData.attachments || [] // *** MODIFIED: Pass attachments here ***
+      attachments: taskData.attachments || [] // Pass attachments here
     });
     await task.save();
 

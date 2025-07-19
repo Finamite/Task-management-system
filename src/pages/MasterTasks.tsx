@@ -137,6 +137,17 @@ const MasterTasks: React.FC = () => {
   const endIndex = startIndex + itemsPerPage;
   const currentTasks = filteredTasks.slice(startIndex, endIndex);
 
+  // Helper function to check if actions column should be shown
+  const shouldShowActionsColumn = () => {
+    // Show actions column if user has edit or delete permissions
+    if (user?.permissions.canEditTasks || user?.permissions.canDeleteTasks) {
+      return true;
+    }
+    
+    // Show actions column if any of the current tasks have revisions (for revision history)
+    return currentTasks.some(task => task.revisionCount > 0);
+  };
+
   useEffect(() => {
     fetchTasks();
     if (user?.permissions.canViewAllTeamTasks) {
@@ -364,7 +375,7 @@ const MasterTasks: React.FC = () => {
                       <History size={16} />
                     </button>
                   )}
-                  {task.status !== 'completed' && (
+                  {task.status !== 'completed' && user?.permissions.canEditTasks && (
                     <button
                       onClick={() => setEditingTask(task)}
                       className={`p-2 rounded-lg transition-colors ${isDark ? 'text-green-400 hover:bg-green-900' : 'text-green-600 hover:bg-green-50'}`}
@@ -528,9 +539,11 @@ const MasterTasks: React.FC = () => {
               <th className={`px-6 py-4 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>
                 Completed Date
               </th>
-              <th className={`px-6 py-4 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>
-                Actions
-              </th>
+              {shouldShowActionsColumn() && (
+                <th className={`px-6 py-4 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>
+                  Actions
+                </th>
+              )}
             </tr>
           </thead>
           <tbody className={`${isDark ? 'bg-gray-800 divide-gray-700' : 'bg-white divide-gray-200'}`}>
@@ -627,37 +640,39 @@ const MasterTasks: React.FC = () => {
                       {task.completedAt ? new Date(task.completedAt).toLocaleDateString() : ''}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                      {task.revisionCount > 0 && (
-                        <button
-                          onClick={() => viewRevisionHistory(task)}
-                          className={`p-1 rounded transition-colors ${isDark ? 'text-blue-400 hover:bg-blue-900' : 'text-blue-600 hover:bg-blue-50'}`}
-                          title="View revision history"
-                        >
-                          <History size={16} />
-                        </button>
-                      )}
-                      {task.status !== 'completed' && (
-                        <button
-                          onClick={() => setEditingTask(task)}
-                          className={`p-1 rounded transition-colors ${isDark ? 'text-green-400 hover:bg-green-900' : 'text-green-600 hover:bg-green-50'}`}
-                          title="Edit task"
-                        >
-                          <Edit3 size={16} />
-                        </button>
-                      )}
-                      {user?.permissions.canDeleteTasks && (
-                        <button
-                          onClick={() => handleDeleteTask(task._id)}
-                          className={`p-1 rounded transition-colors ${isDark ? 'text-red-400 hover:bg-red-900' : 'text-red-600 hover:bg-red-50'}`}
-                          title="Delete task"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      )}
-                    </div>
-                  </td>
+                  {shouldShowActionsColumn() && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex space-x-2">
+                        {task.revisionCount > 0 && (
+                          <button
+                            onClick={() => viewRevisionHistory(task)}
+                            className={`p-1 rounded transition-colors ${isDark ? 'text-blue-400 hover:bg-blue-900' : 'text-blue-600 hover:bg-blue-50'}`}
+                            title="View revision history"
+                          >
+                            <History size={16} />
+                          </button>
+                        )}
+                        {task.status !== 'completed' && user?.permissions.canEditTasks && (
+                          <button
+                            onClick={() => setEditingTask(task)}
+                            className={`p-1 rounded transition-colors ${isDark ? 'text-green-400 hover:bg-green-900' : 'text-green-600 hover:bg-green-50'}`}
+                            title="Edit task"
+                          >
+                            <Edit3 size={16} />
+                          </button>
+                        )}
+                        {user?.permissions.canDeleteTasks && (
+                          <button
+                            onClick={() => handleDeleteTask(task._id)}
+                            className={`p-1 rounded transition-colors ${isDark ? 'text-red-400 hover:bg-red-900' : 'text-red-600 hover:bg-red-50'}`}
+                            title="Delete task"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               );
             })}

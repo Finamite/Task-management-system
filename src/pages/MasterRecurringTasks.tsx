@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { RotateCcw, Calendar, Filter, Search, Trash2, Users, Paperclip, FileText, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { RotateCcw, Calendar, Filter, Search, Trash2, Users, Paperclip, FileText, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Edit3, Save, X } from 'lucide-react';
 import axios from 'axios';
 import ViewToggle from '../components/ViewToggle';
 import StatusBadge from '../components/StatusBadge';
@@ -26,9 +26,16 @@ interface Task {
   dueDate: string;
   priority: string;
   status: string;
+  taskGroupId?: string;
+  sequenceNumber?: number;
   parentTaskInfo?: {
+    originalStartDate?: string;
+    originalEndDate?: string;
     includeSunday: boolean;
     isForever: boolean;
+    weeklyDays?: number[];
+    monthlyDay?: number;
+    yearlyDuration?: number;
   };
   lastCompletedDate?: string;
   createdAt: string;
@@ -39,6 +46,30 @@ interface User {
   _id: string;
   username: string;
   email: string;
+}
+
+interface MasterTask {
+  taskGroupId: string;
+  title: string;
+  description: string;
+  taskType: string;
+  assignedBy: { username: string; email: string };
+  assignedTo: { username: string; email: string };
+  priority: string;
+  parentTaskInfo?: {
+    originalStartDate?: string;
+    originalEndDate?: string;
+    includeSunday: boolean;
+    isForever: boolean;
+    weeklyDays?: number[];
+    monthlyDay?: number;
+    yearlyDuration?: number;
+  };
+  attachments: Attachment[];
+  instanceCount: number;
+  completedCount: number;
+  pendingCount: number;
+  tasks: Task[];
 }
 
 // ReadMore component
@@ -146,14 +177,53 @@ const filterTasks = (tasks: Task[], filter: any) => {
   });
 };
 
+// Helper function to group tasks by taskGroupId
+const groupTasksByGroupId = (tasks: Task[]): MasterTask[] => {
+  const groupedTasks: { [key: string]: Task[] } = {};
+  
+  tasks.forEach(task => {
+    const groupId = task.taskGroupId || task._id;
+    if (!groupedTasks[groupId]) {
+      groupedTasks[groupId] = [];
+    }
+    groupedTasks[groupId].push(task);
+  });
+
+  return Object.entries(groupedTasks).map(([groupId, groupTasks]) => {
+    const firstTask = groupTasks[0];
+    const completedCount = groupTasks.filter(t => t.status === 'completed').length;
+    const pendingCount = groupTasks.filter(t => t.status === 'pending').length;
+    
+    return {
+      taskGroupId: groupId,
+      title: firstTask.title,
+      description: firstTask.description,
+      taskType: firstTask.taskType,
+      assignedBy: firstTask.assignedBy,
+      assignedTo: firstTask.assignedTo,
+      priority: firstTask.priority,
+      parentTaskInfo: firstTask.parentTaskInfo,
+      attachments: firstTask.attachments,
+      instanceCount: groupTasks.length,
+      completedCount,
+      pendingCount,
+      tasks: groupTasks.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+    };
+  });
+};
+
 const MasterRecurringTasks: React.FC = () => {
   const { user } = useAuth();
   const { theme } = useTheme();
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
+  const [masterTasks, setMasterTasks] = useState<MasterTask[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'table' | 'card'>(getInitialViewPreference);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingMasterTask, setEditingMasterTask] = useState<string | null>(null);
+  const [editFormData, setEditFormData] = useState<any>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [filter, setFilter] = useState({
@@ -174,11 +244,21 @@ const MasterRecurringTasks: React.FC = () => {
   // Check if current user is admin
   const isAdmin = user?.role === 'admin' || user?.permissions?.canViewAllTeamTasks || false;
 
-  // Calculate pagination
-  const totalPages = Math.ceil(filteredTasks.length / itemsPerPage);
+  // Check if user can edit recurring task schedules
+  const canEditRecurringTaskSchedules = user?.permissions?.canEditRecurringTaskSchedules || false;
+
+  // Check if user can delete tasks
+  const canDeleteTasks = user?.permissions?.canDeleteTasks || false;
+
+  // Check if user has any actions available for master tasks
+  const hasMasterTaskActions = canEditRecurringTaskSchedules || canDeleteTasks;
+
+  // Calculate pagination based on current view mode
+  const currentData = isEditMode ? masterTasks : filteredTasks;
+  const totalPages = Math.ceil(currentData.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentTasks = filteredTasks.slice(startIndex, endIndex);
+  const currentItems = currentData.slice(startIndex, endIndex);
 
   useEffect(() => {
     fetchTasks();
@@ -191,6 +271,11 @@ const MasterRecurringTasks: React.FC = () => {
   useEffect(() => {
     const filtered = filterTasks(allTasks, filter);
     setFilteredTasks(filtered);
+    
+    // Update master tasks when tasks change
+    const grouped = groupTasksByGroupId(filtered);
+    setMasterTasks(grouped);
+    
     setCurrentPage(1); // Reset to first page when filters change
   }, [allTasks, filter]);
 
@@ -198,7 +283,7 @@ const MasterRecurringTasks: React.FC = () => {
     try {
       setLoading(true);
       const params = new URLSearchParams({
-        taskType: 'daily,weekly,monthly,yearly',
+        taskType: 'daily,weekly,monthly,quarterly,yearly',
         page: '1',
         limit: '1000000' // Fetch all tasks to handle filtering on frontend
       });
@@ -211,7 +296,7 @@ const MasterRecurringTasks: React.FC = () => {
       const response = await axios.get(`http://localhost:5000/api/tasks?${params}`);
 
       let tasks = response.data.tasks.filter((task: Task) =>
-        ['daily', 'weekly', 'monthly', 'yearly'].includes(task.taskType)
+        ['daily', 'weekly', 'monthly','quarterly', 'yearly'].includes(task.taskType)
       );
 
       setAllTasks(tasks);
@@ -240,6 +325,60 @@ const MasterRecurringTasks: React.FC = () => {
         console.error('Error deleting task:', error);
       }
     }
+  };
+
+  const handleDeleteMasterTask = async (masterTask: MasterTask) => {
+    if (window.confirm(`Are you sure you want to delete all ${masterTask.instanceCount} instances of this recurring task series?`)) {
+      try {
+        // Delete all tasks in the group
+        await Promise.all(masterTask.tasks.map(task => 
+          axios.delete(`http://localhost:5000/api/tasks/${task._id}`)
+        ));
+        fetchTasks();
+      } catch (error) {
+        console.error('Error deleting master task:', error);
+      }
+    }
+  };
+
+  const handleEditMasterTask = (masterTask: MasterTask) => {
+    setEditingMasterTask(masterTask.taskGroupId);
+    const formData: any = {
+      title: masterTask.title,
+      description: masterTask.description,
+      priority: masterTask.priority,
+      assignedTo: masterTask.assignedTo._id,
+    };
+
+    setEditFormData(formData);
+  };
+
+  const handleSaveMasterTask = async (masterTask: MasterTask) => {
+    try {
+      // Prepare update data - only basic fields, no scheduling fields
+      const updateData: any = {
+        title: editFormData.title,
+        description: editFormData.description,
+        priority: editFormData.priority,
+        assignedTo: editFormData.assignedTo,
+      };
+
+      // Update all tasks in the group
+      await Promise.all(masterTask.tasks.map(task => 
+        axios.put(`http://localhost:5000/api/tasks/${task._id}`, updateData)
+      ));
+      
+      setEditingMasterTask(null);
+      setEditFormData({});
+      fetchTasks();
+    } catch (error) {
+      console.error('Error saving master task:', error);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMasterTask(null);
+    setEditFormData({});
   };
 
   const resetFilters = () => {
@@ -271,9 +410,324 @@ const MasterRecurringTasks: React.FC = () => {
     return imageExtensions.some(ext => lowercasedFilename.endsWith(ext));
   };
 
+  const renderMasterTaskEditForm = (masterTask: MasterTask) => {
+    if (editingMasterTask !== masterTask.taskGroupId) {
+      return null;
+    }
+
+    return (
+      <div className="bg-[--color-surface] rounded-lg p-6 border border-[--color-border] mb-4">
+        <h4 className="text-lg font-semibold text-[--color-text] mb-4">Edit Master Task</h4>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Title */}
+          <div>
+            <label className="block text-sm font-medium text-[--color-text] mb-1">Title</label>
+            <input
+              type="text"
+              value={editFormData.title || ''}
+              onChange={(e) => setEditFormData({...editFormData, title: e.target.value})}
+              className="w-full px-3 py-2 border border-[--color-border] rounded-lg focus:ring-2 focus:ring-[--color-primary] focus:border-[--color-primary] bg-[--color-background] text-[--color-text]"
+            />
+          </div>
+
+          {/* Priority */}
+          <div>
+            <label className="block text-sm font-medium text-[--color-text] mb-1">Priority</label>
+            <select
+              value={editFormData.priority || ''}
+              onChange={(e) => setEditFormData({...editFormData, priority: e.target.value})}
+              className="w-full px-3 py-2 border border-[--color-border] rounded-lg focus:ring-2 focus:ring-[--color-primary] focus:border-[--color-primary] bg-[--color-background] text-[--color-text]"
+            >
+              <option value="normal">Normal</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+
+          {/* Assigned To */}
+          {isAdmin && (
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-[--color-text] mb-1">Assigned To</label>
+              <select
+                value={editFormData.assignedTo || ''}
+                onChange={(e) => setEditFormData({...editFormData, assignedTo: e.target.value})}
+                className="w-full px-3 py-2 border border-[--color-border] rounded-lg focus:ring-2 focus:ring-[--color-primary] focus:border-[--color-primary] bg-[--color-background] text-[--color-text]"
+              >
+                {users.map(user => (
+                  <option key={user._id} value={user._id}>{user.username}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* Description */}
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-[--color-text] mb-1">Description</label>
+          <textarea
+            value={editFormData.description || ''}
+            onChange={(e) => setEditFormData({...editFormData, description: e.target.value})}
+            rows={3}
+            className="w-full px-3 py-2 border border-[--color-border] rounded-lg focus:ring-2 focus:ring-[--color-primary] focus:border-[--color-primary] bg-[--color-background] text-[--color-text]"
+          />
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex justify-end space-x-3 mt-6">
+          <button
+            onClick={handleCancelEdit}
+            className="px-4 py-2 text-sm font-medium text-[--color-text] bg-[--color-surface] border border-[--color-border] rounded-lg hover:bg-[--color-background] transition-colors"
+          >
+            <X size={16} className="inline mr-1" />
+            Cancel
+          </button>
+          <button
+            onClick={() => handleSaveMasterTask(masterTask)}
+            className="px-4 py-2 text-sm font-medium text-white bg-[--color-primary] rounded-lg hover:bg-[--color-primary-dark] transition-colors"
+          >
+            <Save size={16} className="inline mr-1" />
+            Save Changes
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderMasterTaskCardView = () => (
+    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+      {(currentItems as MasterTask[]).map((masterTask: MasterTask) => (
+        <div key={masterTask.taskGroupId} className="space-y-4">
+          {renderMasterTaskEditForm(masterTask)}
+          
+          <div className="bg-[--color-background] rounded-xl shadow-sm border border-[--color-border] hover:shadow-md transition-all duration-200 overflow-hidden">
+            <div className="p-6">
+              <div className="flex items-start justify-between mb-4">
+                <h3 className="text-lg font-semibold text-[--color-text] line-clamp-2">
+                  {masterTask.title}
+                </h3>
+                {hasMasterTaskActions && (
+                  <div className="flex items-center space-x-2 ml-2">
+                    {canEditRecurringTaskSchedules && (
+                      <button
+                        onClick={() => handleEditMasterTask(masterTask)}
+                        className="p-2 text-[--color-primary] hover:bg-[--color-primary-light] hover:text-white rounded-lg transition-colors"
+                        title="Edit master task"
+                      >
+                        <Edit3 size={16} />
+                      </button>
+                    )}
+                    {canDeleteTasks && (
+                      <button
+                        onClick={() => handleDeleteMasterTask(masterTask)}
+                        className="p-2 text-[--color-error] hover:bg-[--color-error-light] hover:text-white rounded-lg transition-colors"
+                        title="Delete master task"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-2 mb-4">
+                <TaskTypeBadge taskType={masterTask.taskType} />
+                <PriorityBadge priority={masterTask.priority} />
+                <span className="px-2 py-1 text-xs font-medium rounded-full bg-[--color-info-light] text-[--color-info]">
+                  {masterTask.instanceCount} instances
+                </span>
+                <span className="px-2 py-1 text-xs font-medium rounded-full bg-[--color-success-light] text-[--color-success]">
+                  {masterTask.completedCount} completed
+                </span>
+                <span className="px-2 py-1 text-xs font-medium rounded-full bg-[--color-warning-light] text-[--color-warning]">
+                  {masterTask.pendingCount} pending
+                </span>
+                {masterTask.parentTaskInfo?.isForever && (
+                  <span className="px-2 py-1 text-xs font-medium rounded-full bg-[--color-primary-light] text-[--color-primary]">
+                    FOREVER
+                  </span>
+                )}
+              </div>
+
+              <ReadMore text={masterTask.description} maxLength={descriptionMaxLength} />
+
+              <div className="space-y-2 text-sm text-[--color-textSecondary]">
+                <div className="flex justify-between">
+                  <span>Assigned by:</span>
+                  <span className="font-medium">{masterTask.assignedBy.username}</span>
+                </div>
+                {isAdmin && (
+                  <div className="flex justify-between">
+                    <span>Assigned to:</span>
+                    <span className="font-medium">{masterTask.assignedTo.username}</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="flex items-center">
+                    <Paperclip size={14} className="mr-1" />
+                    Attachments:
+                  </span>
+                  {masterTask.attachments && masterTask.attachments.length > 0 ? (
+                    <button
+                      onClick={() => setShowAttachmentsModal(masterTask.attachments)}
+                      className="font-medium text-[--color-primary] hover:text-[--color-primary-dark]"
+                    >
+                      Click Here ({masterTask.attachments.length})
+                    </button>
+                  ) : (
+                    <span>No Attachments</span>
+                  )}
+                </div>
+                <div className="flex justify-between">
+                  <span>Date range:</span>
+                  <span className="font-medium">
+                    {new Date(masterTask.tasks[0].dueDate).toLocaleDateString()} - {new Date(masterTask.tasks[masterTask.tasks.length - 1].dueDate).toLocaleDateString()}
+                  </span>
+                </div>
+                {masterTask.parentTaskInfo && (
+                  <div className="flex justify-between">
+                    <span>Include Sunday:</span>
+                    <span className="font-medium">{masterTask.parentTaskInfo.includeSunday ? 'Yes' : 'No'}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderMasterTaskTableView = () => (
+    <div className="bg-[--color-background] rounded-xl shadow-sm border border-[--color-border] overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-[--color-border]">
+          <thead className="bg-[--color-surface]">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-[--color-textSecondary] uppercase tracking-wider">
+                Master Task
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-[--color-textSecondary] uppercase tracking-wider">
+                Type
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-[--color-textSecondary] uppercase tracking-wider">
+                Priority
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-[--color-textSecondary] uppercase tracking-wider">
+                Instances
+              </th>
+              {isAdmin && (
+                <th className="px-6 py-3 text-left text-xs font-medium text-[--color-textSecondary] uppercase tracking-wider">
+                  Assigned To
+                </th>
+              )}
+              <th className="px-6 py-3 text-left text-xs font-medium text-[--color-textSecondary] uppercase tracking-wider">
+                Date Range
+              </th>
+              {hasMasterTaskActions && (
+                <th className="px-6 py-3 text-left text-xs font-medium text-[--color-textSecondary] uppercase tracking-wider">
+                  Actions
+                </th>
+              )}
+            </tr>
+          </thead>
+          <tbody className="bg-[--color-background] divide-y divide-[--color-border]">
+            {(currentItems as MasterTask[]).map((masterTask: MasterTask) => (
+              <React.Fragment key={masterTask.taskGroupId}>
+                <tr className="hover:bg-[--color-surface] transition-colors">
+                  <td className="px-6 py-4">
+                    <div>
+                      <div className="text-sm font-medium text-[--color-text] mb-1">
+                        {masterTask.title}
+                      </div>
+                      <ReadMore text={masterTask.description} maxLength={descriptionMaxLength} />
+                      <div className="flex items-center mt-2 space-x-2">
+                        {masterTask.parentTaskInfo?.isForever && (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[--color-primary-light] text-[--color-primary]">
+                            FOREVER
+                          </span>
+                        )}
+                        {masterTask.parentTaskInfo && (
+                          <span className="text-xs text-[--color-textSecondary]">
+                            Sunday: {masterTask.parentTaskInfo.includeSunday ? 'Yes' : 'No'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <TaskTypeBadge taskType={masterTask.taskType} />
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <PriorityBadge priority={masterTask.priority} />
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-[--color-text]">
+                      Total: {masterTask.instanceCount}
+                    </div>
+                    <div className="text-xs text-[--color-success]">
+                      Completed: {masterTask.completedCount}
+                    </div>
+                    <div className="text-xs text-[--color-warning]">
+                      Pending: {masterTask.pendingCount}
+                    </div>
+                  </td>
+                  {isAdmin && (
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-[--color-text]">{masterTask.assignedTo.username}</div>
+                      <div className="text-sm text-[--color-textSecondary]">{masterTask.assignedTo.email}</div>
+                    </td>
+                  )}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-[--color-text]">
+                      {new Date(masterTask.tasks[0].dueDate).toLocaleDateString()}
+                    </div>
+                    <div className="text-xs text-[--color-textSecondary]">
+                      to {new Date(masterTask.tasks[masterTask.tasks.length - 1].dueDate).toLocaleDateString()}
+                    </div>
+                  </td>
+                  {hasMasterTaskActions && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex items-center space-x-2">
+                        {canEditRecurringTaskSchedules && (
+                          <button
+                            onClick={() => handleEditMasterTask(masterTask)}
+                            className="p-2 text-[--color-primary] hover:bg-[--color-primary] hover:text-white rounded-lg transition-colors"
+                            title="Edit master task"
+                          >
+                            <Edit3 size={16} />
+                          </button>
+                        )}
+                        {canDeleteTasks && (
+                          <button
+                            onClick={() => handleDeleteMasterTask(masterTask)}
+                            className="p-2 text-[--color-error] hover:bg-[--color-error] hover:text-white rounded-lg transition-colors"
+                            title="Delete master task"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  )}
+                </tr>
+                {editingMasterTask === masterTask.taskGroupId && (
+                  <tr>
+                    <td colSpan={isAdmin ? (hasMasterTaskActions ? 7 : 6) : (hasMasterTaskActions ? 6 : 5)} className="px-6 py-4">
+                      {renderMasterTaskEditForm(masterTask)}
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
   const renderCardView = () => (
     <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
-      {currentTasks.map((task) => (
+      {(currentItems as Task[]).map((task: Task) => (
         <div
           key={task._id}
           className="bg-[--color-background] rounded-xl shadow-sm border border-[--color-border] hover:shadow-md transition-all duration-200 overflow-hidden"
@@ -283,10 +737,10 @@ const MasterRecurringTasks: React.FC = () => {
               <h3 className="text-lg font-semibold text-[--color-text] line-clamp-2">
                 {task.title}
               </h3>
-              {user?.permissions?.canDeleteTasks && (
+              {canDeleteTasks && (
                 <button
                   onClick={() => handleDeleteTask(task._id)}
-                  className="p-2 text-[--color-error] hover:bg-[--color-error-light] rounded-lg transition-colors ml-2"
+                  className="p-2 text-[--color-error] hover:bg-[--color-error-light] hover:text-white rounded-lg transition-colors ml-2"
                   title="Delete task"
                 >
                   <Trash2 size={16} />
@@ -390,13 +844,15 @@ const MasterRecurringTasks: React.FC = () => {
               <th className="px-6 py-3 text-left text-xs font-medium text-[--color-textSecondary] uppercase tracking-wider">
                 Due Date
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-[--color-textSecondary] uppercase tracking-wider">
-                Actions
-              </th>
+              {canDeleteTasks && (
+                <th className="px-6 py-3 text-left text-xs font-medium text-[--color-textSecondary] uppercase tracking-wider">
+                  Actions
+                </th>
+              )}
             </tr>
           </thead>
           <tbody className="bg-[--color-background] divide-y divide-[--color-border]">
-            {currentTasks.map((task) => (
+            {currentItems.map((task: Task) => (
               <tr key={task._id} className="hover:bg-[--color-surface] transition-colors">
                 <td className="px-6 py-4">
                   <div>
@@ -455,16 +911,16 @@ const MasterRecurringTasks: React.FC = () => {
                     </div>
                   )}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  {user?.permissions?.canDeleteTasks && (
+                {canDeleteTasks && (
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button
                       onClick={() => handleDeleteTask(task._id)}
-                      className="text-[--color-error] hover:text-[--color-error-dark] transition-colors"
+                      className="p-2 text-[--color-error] hover:bg-[--color-error-light] hover:text-white rounded-lg transition-colors"
                     >
                       <Trash2 size={16} />
                     </button>
-                  )}
-                </td>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -491,25 +947,42 @@ const MasterRecurringTasks: React.FC = () => {
             {isAdmin && <span className="text-xs font-normal text-[--color-primary] ml-2">(Admin View - All Team)</span>}
           </h1>
           <p className="mt-1 text-xs text-[--color-textSecondary]">
-            {filteredTasks.length} of {allTasks.length} recurring task(s) found
+            {isEditMode ? `${masterTasks.length} master task series` : `${filteredTasks.length} of ${allTasks.length} recurring task(s) found`}
             {isAdmin ? ' (All team members)' : ' (Your tasks)'} 
           </p>
         </div>
-        <div className="flex items-center mt-4 sm:mt-0">
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="px-4 py-2 text-sm font-medium text-[--color-textSecondary] bg-[--color-surface] hover:bg-[--color-border] rounded-lg transition-colors flex items-center mr-4"
-            title={showFilters ? "Hide Filters" : "Show Filters"}
-          >
-            <Filter size={16} className="inline mr-2" />
-            {showFilters ? "Hide Filters" : "Show Filters"}
-          </button>
-          <ViewToggle view={view} onViewChange={setView} />
+        <div className="flex items-center mt-4 sm:mt-0 space-x-3">
+          {canEditRecurringTaskSchedules && (
+            <button
+              onClick={() => setIsEditMode(!isEditMode)}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center ${
+                isEditMode 
+                  ? 'bg-[--color-primary] text-white hover:bg-[--color-primary]' 
+                  : 'text-[--color-text] bg-[--color-surface] hover:bg-[--color-border]'
+              }`}
+            >
+              <Edit3 size={16} className="inline mr-2" />
+              {isEditMode ? 'Exit Edit Mode' : 'Edit Master Tasks'}
+            </button>
+          )}
+          {!isEditMode && (
+            <>
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="px-4 py-2 text-sm font-medium text-[--color-textSecondary] bg-[--color-surface] hover:bg-[--color-border] rounded-lg transition-colors flex items-center"
+                title={showFilters ? "Hide Filters" : "Show Filters"}
+              >
+                <Filter size={16} className="inline mr-2" />
+                {showFilters ? "Hide Filters" : "Show Filters"}
+              </button>
+              <ViewToggle view={view} onViewChange={setView} />
+            </>
+          )}
         </div>
       </div>
 
-      {/* Filters */}
-      {showFilters && (
+      {/* Filters - Only show when not in edit mode */}
+      {!isEditMode && showFilters && (
         <div className="bg-[--color-background] rounded-xl shadow-sm border border-[--color-border] p-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {/* Date From */}
@@ -554,6 +1027,7 @@ const MasterRecurringTasks: React.FC = () => {
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
                 <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly</option>
                 <option value="yearly">Yearly</option>
               </select>
             </div>
@@ -647,15 +1121,17 @@ const MasterRecurringTasks: React.FC = () => {
       )}
 
       {/* Content */}
-      {filteredTasks.length === 0 ? (
+      {currentData.length === 0 ? (
         <div className="text-center py-12">
           <RotateCcw size={48} className="mx-auto mb-4 text-[--color-textSecondary]" />
           <p className="text-lg text-[--color-textSecondary]">
-            {Object.values(filter).some(value => value !== '') 
-              ? 'No recurring tasks match your filters'
-              : 'No recurring tasks found'}
+            {isEditMode 
+              ? 'No master tasks found'
+              : Object.values(filter).some(value => value !== '') 
+                ? 'No recurring tasks match your filters'
+                : 'No recurring tasks found'}
           </p>
-          {Object.values(filter).some(value => value !== '') && (
+          {!isEditMode && Object.values(filter).some(value => value !== '') && (
             <button
               onClick={resetFilters}
               className="mt-4 px-4 py-2 text-sm font-medium text-[--color-primary] hover:text-[--color-primary-dark] transition-colors"
@@ -666,7 +1142,10 @@ const MasterRecurringTasks: React.FC = () => {
         </div>
       ) : (
         <>
-          {view === 'card' ? renderCardView() : renderTableView()}
+          {isEditMode 
+            ? (view === 'card' ? renderMasterTaskCardView() : renderMasterTaskTableView())
+            : (view === 'card' ? renderCardView() : renderTableView())
+          }
 
           {/* Enhanced Pagination */}
           {totalPages > 1 && (
@@ -692,8 +1171,8 @@ const MasterRecurringTasks: React.FC = () => {
                 <div className="flex items-center">
                   <p className="text-sm text-[--color-textSecondary]">
                     Showing <span className="font-medium">{startIndex + 1}</span> to{' '}
-                    <span className="font-medium">{Math.min(endIndex, filteredTasks.length)}</span> of{' '}
-                    <span className="font-medium">{filteredTasks.length}</span> results
+                    <span className="font-medium">{Math.min(endIndex, currentData.length)}</span> of{' '}
+                    <span className="font-medium">{currentData.length}</span> results
                   </p>
                 </div>
 
@@ -890,10 +1369,7 @@ const MasterRecurringTasks: React.FC = () => {
       )}
     </div>
   );
+  
 };
 
 export default MasterRecurringTasks;
-
-
-
-

@@ -26,12 +26,12 @@ const taskSchema = new mongoose.Schema({
   },
   taskType: {
     type: String,
-    enum: ['one-time', 'daily', 'weekly', 'monthly', 'yearly'],
+    enum: ['one-time', 'daily', 'weekly', 'monthly', 'quarterly', 'yearly'],
     required: true
   },
   originalTaskType: {
     type: String,
-    enum: ['one-time', 'daily', 'weekly', 'monthly', 'yearly']
+    enum: ['one-time', 'daily', 'weekly', 'monthly', 'quarterly', 'yearly']
   },
   assignedBy: {
     type: mongoose.Schema.Types.ObjectId,

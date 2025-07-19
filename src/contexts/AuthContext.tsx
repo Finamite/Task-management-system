@@ -13,6 +13,7 @@ interface User {
     canDeleteTasks: boolean;
     canEditTasks: boolean;
     canManageUsers: boolean;
+    canEditRecurringTaskSchedules: boolean;
   };
 }
 
@@ -74,4 +75,4 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       {children}
     </AuthContext.Provider>
   );
-}; 
+};

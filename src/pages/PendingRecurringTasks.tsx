@@ -621,6 +621,7 @@ const PendingRecurringTasks: React.FC = () => {
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
                 <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly</option>
                 <option value="yearly">Yearly</option>
               </select>
             </div>

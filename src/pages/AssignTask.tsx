@@ -183,6 +183,29 @@ const AssignTask: React.FC = () => {
     return tasks;
   };
 
+  // Helper function to preview quarterly task dates
+  const getQuarterlyTaskPreview = () => {
+    if (formData.taskType !== 'quarterly' || !formData.startDate) return [];
+    
+    const startDate = new Date(formData.startDate);
+    const tasks = [];
+    
+    // Create 4 quarterly tasks
+    for (let i = 0; i < 4; i++) {
+      const taskDate = new Date(startDate);
+      taskDate.setMonth(startDate.getMonth() + (i * 3)); // Add 3 months for each quarter
+      
+      // Handle Sunday exclusion
+      if (!formData.includeSunday && taskDate.getDay() === 0) {
+        taskDate.setDate(taskDate.getDate() - 1); // Move to Saturday
+      }
+      
+      tasks.push(taskDate);
+    }
+    
+    return tasks;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -202,10 +225,10 @@ const AssignTask: React.FC = () => {
 
     // Validate dates for recurring tasks
     if (formData.taskType !== 'one-time') {
-      // For yearly tasks, only validate start date
-      if (formData.taskType === 'yearly') {
+      // For yearly and quarterly tasks, only validate start date
+      if (formData.taskType === 'yearly' || formData.taskType === 'quarterly') {
         if (!formData.startDate) {
-          toast.error('Please select start date for yearly tasks.', { theme: isDark ? 'dark' : 'light' });
+          toast.error(`Please select start date for ${formData.taskType} tasks.`, { theme: isDark ? 'dark' : 'light' });
           setLoading(false);
           return;
         }
@@ -224,8 +247,8 @@ const AssignTask: React.FC = () => {
           return;
         }
       }
-      // For forever tasks (non-yearly), only validate start date
-      else if (formData.taskType !== 'yearly' && !formData.startDate) {
+      // For forever tasks (non-yearly and non-quarterly), only validate start date
+      else if (formData.taskType !== 'yearly' && formData.taskType !== 'quarterly' && !formData.startDate) {
         toast.error('Please select start date for recurring tasks.', { theme: isDark ? 'dark' : 'light' });
         setLoading(false);
         return;
@@ -253,8 +276,8 @@ const AssignTask: React.FC = () => {
           assignedTo: assignedUserId, // Single user per task
           assignedBy: user?.id,
           attachments: uploadedAttachments,
-          // For yearly tasks, ensure proper date handling
-          ...(formData.taskType === 'yearly' && !formData.isForever && {
+          // For yearly and quarterly tasks, ensure proper date handling
+          ...((formData.taskType === 'yearly' || formData.taskType === 'quarterly') && !formData.isForever && {
             endDate: formData.startDate
           })
         };
@@ -318,6 +341,7 @@ const AssignTask: React.FC = () => {
   const isWeekly = formData.taskType === 'weekly';
   const isMonthly = formData.taskType === 'monthly';
   const isYearly = formData.taskType === 'yearly';
+  const isQuarterly = formData.taskType === 'quarterly';
 
   const getSelectedUsers = () => {
     return users.filter(u => formData.assignedTo.includes(u._id));
@@ -446,6 +470,7 @@ const AssignTask: React.FC = () => {
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
                 <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly</option>
                 <option value="yearly">Yearly</option>
               </select>
             </div>
@@ -752,7 +777,7 @@ const AssignTask: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                    {isYearly ? 'Task Date *' : 'Start Date *'}
+                    {isYearly || isQuarterly ? 'Task Date *' : 'Start Date *'}
                   </label>
                   <div onClick={() => openDatePicker(startDateInputRef)} className="cursor-pointer">
                     <input
@@ -772,7 +797,7 @@ const AssignTask: React.FC = () => {
                   </div>
                 </div>
 
-                {!isYearly && (
+                {!isYearly && !isQuarterly && (
                   <div>
                   <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                     End Date {!formData.isForever && '*'}
@@ -799,8 +824,8 @@ const AssignTask: React.FC = () => {
               </div>
 
               <div className="flex flex-wrap items-center gap-6">
-                {/* Forever checkbox - only for non-yearly tasks */}
-                {!isYearly && (
+                {/* Forever checkbox - only for non-yearly and non-quarterly tasks */}
+                {!isYearly && !isQuarterly && (
                   <label className="flex items-center">
                     <input
                       type="checkbox"
@@ -833,8 +858,8 @@ const AssignTask: React.FC = () => {
                   </label>
                 )}
 
-                {/* Include Sunday checkbox - for daily, monthly, and yearly tasks */}
-                {(formData.taskType === 'daily' || isMonthly || isYearly) && (
+                {/* Include Sunday checkbox - for daily, monthly, quarterly, and yearly tasks */}
+                {(formData.taskType === 'daily' || isMonthly || isQuarterly || isYearly) && (
                   <label className="flex items-center">
                     <input
                       type="checkbox"
@@ -914,8 +939,39 @@ const AssignTask: React.FC = () => {
                 </div>
               )}
 
-              {/* Sunday warning for monthly and yearly tasks */}
-              {(isMonthly || isYearly) && !formData.includeSunday && (
+              {/* Quarterly Task Preview */}
+              {isQuarterly && formData.startDate && (
+                <div
+                  className="p-4 rounded-lg border"
+                  style={{
+                    backgroundColor: 'var(--color-info-light)',
+                    borderColor: 'var(--color-info-border)'
+                  }}
+                >
+                  <p className={`text-sm font-medium mb-2`} style={{ color: 'var(--color-info-dark)' }}>
+                    <Calendar className="inline mr-1" size={16} />
+                    Quarterly Task Preview (4 tasks for one year):
+                  </p>
+                  <div className="space-y-1">
+                    {getQuarterlyTaskPreview().map((date, index) => (
+                      <div key={index} className={`text-xs`} style={{ color: 'var(--color-info-dark)' }}>
+                        • Quarter {index + 1}: {date.toLocaleDateString('en-US', { 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric',
+                          weekday: 'long'
+                        })}
+                        {!formData.includeSunday && date.getDay() === 0 && (
+                          <span className="text-orange-600 ml-2">(moved from Sunday)</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Sunday warning for monthly, quarterly and yearly tasks */}
+              {(isMonthly || isQuarterly || isYearly) && !formData.includeSunday && (
                 <div
                   className="p-4 rounded-lg border"
                   style={{
@@ -924,7 +980,7 @@ const AssignTask: React.FC = () => {
                   }}
                 >
                   <p className={`text-sm`} style={{ color: 'var(--color-warning-dark)' }}>
-                    <strong>Note:</strong> If any {isMonthly ? 'monthly' : 'yearly'} task falls on a Sunday, it will be moved to the previous day (Saturday).
+                    <strong>Note:</strong> If any {isMonthly ? 'monthly' : isQuarterly ? 'quarterly' : 'yearly'} task falls on a Sunday, it will be moved to the previous day (Saturday).
                   </p>
                 </div>
               )}
@@ -942,6 +998,7 @@ const AssignTask: React.FC = () => {
                     {formData.taskType === 'daily' && ' Individual tasks will be created for each day in the selected date range.'}
                     {formData.taskType === 'weekly' && ' Tasks will be created for each occurrence of the selected days within the date range.'}
                     {formData.taskType === 'monthly' && ` Tasks will be created for the ${formData.monthlyDay}${formData.monthlyDay === 1 ? 'st' : formData.monthlyDay === 2 ? 'nd' : formData.monthlyDay === 3 ? 'rd' : 'th'} day of each month within the date range.`}
+                    {formData.taskType === 'quarterly' && ' Tasks will be created for 4 quarters (every 3 months) starting from the selected date for one year.'}
                     {formData.taskType === 'yearly' && !formData.isForever && ' A single task will be created for the selected date.'}
                     {formData.taskType === 'yearly' && formData.isForever && ` Exactly ${formData.yearlyDuration} tasks will be created, one for each year starting from the selected date.`}
                   </p>
