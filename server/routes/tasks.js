@@ -560,10 +560,10 @@ router.delete('/:id', async (req, res) => {
     }
 
     res.json({ message: 'Task deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting task:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
+  // } catch (error) {
+  //   console.error('Error deleting task:', error);
+  //   res.status(500).json({ message: 'Server error', error: error.message });
+  // }
 });
 
 export default router;
