@@ -852,7 +852,7 @@ const MasterRecurringTasks: React.FC = () => {
             </tr>
           </thead>
           <tbody className="bg-[--color-background] divide-y divide-[--color-border]">
-            {currentItems.map((task: Task) => (
+            {(currentItems as Task[]).map((task: Task) => (
               <tr key={task._id} className="hover:bg-[--color-surface] transition-colors">
                 <td className="px-6 py-4">
                   <div>

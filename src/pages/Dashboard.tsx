@@ -10,7 +10,7 @@ import {
   ChevronDown, Award, Star, Zap, ArrowUp, ArrowDown, BarChart3,
   PieChart as PieChartIcon, Trophy,
   Clock4, CalendarDays, RefreshCw, UserCheck, TrendingUpIcon,
-  PercentIcon, ClockIcon
+  PercentIcon, ClockIcon, User
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
@@ -65,6 +65,36 @@ interface DashboardData {
     onTimeCompletion: number;
     averageCompletionTime: number;
     taskDistribution: Array<{ type: string; count: number; percentage: number }>;
+    oneTimeOnTimeRate?: number;
+    recurringOnTimeRate?: number;
+  };
+  userPerformance?: {
+    username: string;
+    totalTasks: number;
+    completedTasks: number;
+    pendingTasks: number;
+    oneTimeTasks: number;
+    oneTimePending: number;
+    oneTimeCompleted: number;
+    dailyTasks: number;
+    dailyPending: number;
+    dailyCompleted: number;
+    weeklyTasks: number;
+    weeklyPending: number;
+    weeklyCompleted: number;
+    monthlyTasks: number;
+    monthlyPending: number;
+    monthlyCompleted: number;
+    yearlyTasks: number;
+    yearlyPending: number;
+    yearlyCompleted: number;
+    recurringTasks: number;
+    recurringPending: number;
+    recurringCompleted: number;
+    completionRate: number;
+    onTimeRate: number;
+    onTimeCompletedTasks: number;
+    onTimeRecurringCompleted: number;
   };
 }
 
@@ -91,6 +121,12 @@ interface TaskCounts {
   yearlyTasks: number;
   yearlyPending: number;
   yearlyCompleted: number;
+  trends?: {
+    totalTasks: { value: number; direction: 'up' | 'down' };
+    pendingTasks: { value: number; direction: 'up' | 'down' };
+    completedTasks: { value: number; direction: 'up' | 'down' };
+    overdueTasks: { value: number; direction: 'up' | 'down' };
+  };
 }
 
 const Dashboard: React.FC = () => {
@@ -98,7 +134,6 @@ const Dashboard: React.FC = () => {
   const { theme, setTheme, isDark } = useTheme();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [taskCounts, setTaskCounts] = useState<TaskCounts | null>(null);
-  const [allTimeTaskCounts, setAllTimeTaskCounts] = useState<TaskCounts | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [showMonthFilter, setShowMonthFilter] = useState(false);
@@ -130,7 +165,7 @@ const Dashboard: React.FC = () => {
     );
   };
 
-  // --- MetricCard Component (kept as is, good utility component) ---
+  // --- MetricCard Component with Real Trends ---
   const MetricCard = ({
     icon,
     title,
@@ -186,7 +221,7 @@ const Dashboard: React.FC = () => {
                 : 'bg-[var(--color-error)]/10 text-[var(--color-error)]'
             }`}>
               {trend.direction === 'up' ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
-              <span className="ml-1">{Math.abs(trend.value)}%</span>
+              <span className="ml-1">{trend.value}%</span>
             </div>
           )}
 
@@ -255,6 +290,131 @@ const Dashboard: React.FC = () => {
     </ThemeCard>
   );
 
+  // --- Enhanced User Performance Card Component ---
+  const UserPerformanceCard = ({ userPerformance }: { userPerformance: DashboardData['userPerformance'] }) => {
+    if (!userPerformance) return null;
+
+    // Calculate rates safely
+    const actualCompletionRate = userPerformance.totalTasks > 0 ? (userPerformance.completedTasks / userPerformance.totalTasks) * 100 : 0;
+    const actualOnTimeRate = userPerformance.completedTasks > 0 ? (userPerformance.onTimeCompletedTasks / userPerformance.completedTasks) * 100 : 0;
+    const mainCompletionRate = (actualCompletionRate * 0.5) + (actualOnTimeRate * 0.5);
+
+    return (
+      <ThemeCard className="p-8" variant="glass">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8 space-y-6 lg:space-y-0">
+          <div className="flex items-center space-x-6">
+            <div className="relative">
+              <div
+                className="w-20 h-20 rounded-3xl bg-gradient-to-r from-blue-400 to-purple-600 flex items-center justify-center text-white font-bold shadow-xl text-2xl"
+              >
+                {userPerformance.username.charAt(0).toUpperCase()}
+              </div>
+              <div className="absolute -top-3 -right-3 bg-white rounded-full p-2.5 shadow-lg">
+                <User size={20} style={{ color: 'var(--color-primary)' }} />
+              </div>
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center space-x-4 mb-3">
+                <h4 className="font-bold text-2xl text-[var(--color-text)]">
+                  Your Performance
+                </h4>
+                <span className="text-sm px-4 py-2 rounded-full font-bold bg-blue-50 text-blue-700">
+                  {userPerformance.username}
+                </span>
+              </div>
+              <p className="text-lg font-semibold text-[var(--color-textSecondary)]">
+                {userPerformance.totalTasks} total tasks assigned
+              </p>
+            </div>
+          </div>
+
+          <div className="text-center lg:text-right">
+            <div className="text-5xl font-bold text-[var(--color-success)] mb-3">
+              {mainCompletionRate.toFixed(1)}%
+            </div>
+            <div className="w-32 h-4 bg-[var(--color-border)] rounded-full overflow-hidden mx-auto lg:mx-0 mb-2">
+              <div
+                className="h-full rounded-full transition-all duration-1000 ease-out"
+                style={{
+                  width: `${Math.min(mainCompletionRate, 100)}%`,
+                  background: `linear-gradient(to right, var(--color-success), var(--color-primary))`
+                }}
+              />
+            </div>
+            <p className="text-sm text-[var(--color-textSecondary)] font-medium">Overall Performance Score</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {[
+            { label: 'One-time', total: userPerformance.oneTimeTasks, pending: userPerformance.oneTimePending, completed: userPerformance.oneTimeCompleted, icon: <Target size={18} />, color: 'var(--color-primary)' },
+            { label: 'Daily', total: userPerformance.dailyTasks, pending: userPerformance.dailyPending, completed: userPerformance.dailyCompleted, icon: <RefreshCw size={18} />, color: 'var(--color-success)' },
+            { label: 'Weekly', total: userPerformance.weeklyTasks, pending: userPerformance.weeklyPending, completed: userPerformance.weeklyCompleted, icon: <Calendar size={18} />, color: 'var(--color-warning)' },
+            { label: 'Monthly', total: userPerformance.monthlyTasks, pending: userPerformance.monthlyPending, completed: userPerformance.monthlyCompleted, icon: <CalendarDays size={18} />, color: 'var(--color-accent)' },
+          ].map((item, index) => (
+            <ThemeCard key={index} className="p-5" variant="default" hover={false}>
+              <div className="flex items-center mb-3">
+                <div style={{ color: item.color }} className="mr-3">{item.icon}</div>
+                <span className="text-sm font-bold text-[var(--color-textSecondary)]">{item.label} Tasks</span>
+              </div>
+              <div className="text-center mb-4">
+                <span className="text-3xl font-bold text-[var(--color-text)] block">{item.total}</span>
+                <span className="text-sm text-[var(--color-textSecondary)] font-medium">Total Assigned</span>
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <Clock size={14} className="mr-2" style={{ color: 'var(--color-warning)' }} />
+                    <span className="text-sm text-[var(--color-textSecondary)] font-medium">Pending</span>
+                  </div>
+                  <span className="text-lg font-bold text-[var(--color-warning)]">{item.pending}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <CheckCircle size={14} className="mr-2" style={{ color: 'var(--color-success)' }} />
+                    <span className="text-sm text-[var(--color-textSecondary)] font-medium">Completed</span>
+                  </div>
+                  <span className="text-lg font-bold text-[var(--color-success)]">{item.completed}</span>
+                </div>
+              </div>
+            </ThemeCard>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-6 border-t border-[var(--color-border)]">
+          <div className="flex items-center justify-center lg:justify-start">
+            <CheckCircle size={18} style={{ color: 'var(--color-success)' }} className="mr-3" />
+            <div>
+              <span className="text-sm text-[var(--color-textSecondary)] block">Completion Rate</span>
+              <span className="text-xl font-bold text-[var(--color-success)]">{actualCompletionRate.toFixed(1)}%</span>
+            </div>
+          </div>
+          <div className="flex items-center justify-center lg:justify-start">
+            <Clock4 size={18} style={{ color: 'var(--color-primary)' }} className="mr-3" />
+            <div>
+              <span className="text-sm text-[var(--color-textSecondary)] block">On-time Rate</span>
+              <span className="text-xl font-bold text-[var(--color-primary)]">{actualOnTimeRate.toFixed(1)}%</span>
+            </div>
+          </div>
+          <div className="flex items-center justify-center lg:justify-start">
+            <RefreshCw size={18} style={{ color: 'var(--color-info)' }} className="mr-3" />
+            <div>
+              <span className="text-sm text-[var(--color-textSecondary)] block">Recurring Tasks</span>
+              <span className="text-xl font-bold text-[var(--color-text)]">{userPerformance.recurringTasks}</span>
+            </div>
+          </div>
+          <div className="flex items-center justify-center lg:justify-start">
+            <Target size={18} style={{ color: 'var(--color-warning)' }} className="mr-3" />
+            <div>
+              <span className="text-sm text-[var(--color-textSecondary)] block">On-time Completed</span>
+              <span className="text-xl font-bold text-[var(--color-text)]">{userPerformance.onTimeCompletedTasks}</span>
+            </div>
+          </div>
+        </div>
+      </ThemeCard>
+    );
+  };
+
   // --- TeamMemberCard Component (Updated) ---
   const TeamMemberCard = ({ member, rank }: {
     member: DashboardData['teamPerformance'][0];
@@ -274,12 +434,9 @@ const Dashboard: React.FC = () => {
       };
     };
     const badge = getRankBadge(rank);
-    // Calculate completion rate with fallback to avoid NaN
     const actualCompletionRate = member.totalTasks > 0 ? (member.completedTasks / member.totalTasks) * 100 : 0;
-    // Calculate on-time rate with fallback to avoid NaN
     const totalOnTimeCompleted = member.onTimeCompletedTasks + (member.onTimeRecurringCompleted || 0);
     const actualOnTimeRate = member.completedTasks > 0 ? (totalOnTimeCompleted / member.completedTasks) * 100 : 0;
-    // Calculate main completion rate (50% completion rate + 50% on-time rate)
     const mainCompletionRate = (actualCompletionRate * 0.5) + (actualOnTimeRate * 0.5);
 
     return (
@@ -457,12 +614,13 @@ const Dashboard: React.FC = () => {
     try {
       const params: any = {
         userId: user?.id,
-        isAdmin: user?.role === 'admin',
+        isAdmin: user?.role === 'admin' ? 'true' : 'false',
       };
       if (startDate && endDate) {
         params.startDate = startDate;
         params.endDate = endDate;
       }
+      
       const response = await axios.get(`http://localhost:5000/api/dashboard/analytics`, { params });
       return response.data;
     } catch (error) {
@@ -475,12 +633,13 @@ const Dashboard: React.FC = () => {
     try {
       const params: any = {
         userId: user?.id,
-        isAdmin: user?.role === 'admin'
+        isAdmin: user?.role === 'admin' ? 'true' : 'false'
       };
       if (startDate && endDate) {
         params.startDate = startDate;
         params.endDate = endDate;
       }
+      
       const response = await axios.get(`http://localhost:5000/api/dashboard/counts`, { params });
       return response.data;
     } catch (error) {
@@ -493,25 +652,23 @@ const Dashboard: React.FC = () => {
     const loadData = async () => {
       setLoading(true);
       try {
-        let currentAnalyticsData = null;
-        let currentCountsData = null;
+        let analyticsData = null;
+        let countsData = null;
 
         if (viewMode === 'current') {
+          // For current month view, use date filters
           const monthStart = startOfMonth(selectedMonth);
           const monthEnd = endOfMonth(selectedMonth);
-          currentAnalyticsData = await fetchDashboardAnalytics(monthStart.toISOString(), monthEnd.toISOString());
-          currentCountsData = await fetchTaskCounts(monthStart.toISOString(), monthEnd.toISOString());
+          analyticsData = await fetchDashboardAnalytics(monthStart.toISOString(), monthEnd.toISOString());
+          countsData = await fetchTaskCounts(monthStart.toISOString(), monthEnd.toISOString());
         } else {
-          // For 'all-time' view, fetch without date filters for counts and general analytics
-          currentAnalyticsData = await fetchDashboardAnalytics();
-          currentCountsData = await fetchTaskCounts();
+          // For all-time view, fetch without date filters
+          analyticsData = await fetchDashboardAnalytics();
+          countsData = await fetchTaskCounts();
         }
 
-        setDashboardData(currentAnalyticsData);
-        setTaskCounts(currentCountsData);
-
-        const allTimeResponse = await fetchTaskCounts();
-        setAllTimeTaskCounts(allTimeResponse);
+        setDashboardData(analyticsData);
+        setTaskCounts(countsData);
 
       } catch (error) {
         console.error('Error in loadData:', error);
@@ -520,7 +677,9 @@ const Dashboard: React.FC = () => {
       }
     };
 
-    loadData();
+    if (user?.id) {
+      loadData();
+    }
   }, [user, selectedMonth, viewMode, fetchDashboardAnalytics, fetchTaskCounts]);
 
   // --- Helper Functions ---
@@ -554,7 +713,7 @@ const Dashboard: React.FC = () => {
     color: statusColors[item._id as keyof typeof statusColors] || 'var(--color-secondary)'
   })) || [];
 
-  // FIXED: Generate trend data to always show last 6 months including current month
+  // Generate trend data to always show last 6 months including current month
   const generateTrendData = () => {
     const trendMonths: { month: string; completed: number; planned: number; }[] = [];
     const currentDate = new Date();
@@ -586,8 +745,7 @@ const Dashboard: React.FC = () => {
 
   const trendData = generateTrendData();
 
-  const currentData = viewMode === 'current' ? taskCounts : allTimeTaskCounts;
-  const displayData = currentData || taskCounts;
+  const displayData = taskCounts;
 
   const taskTypeData = [
     {
@@ -636,6 +794,17 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[var(--color-background)] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--color-primary)] mx-auto mb-4"></div>
+          <p className="text-[var(--color-textSecondary)]">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[var(--color-background)] p-4 space-y-8">
       {/* Professional Header */}
@@ -650,7 +819,7 @@ const Dashboard: React.FC = () => {
             </h1>
             <p className="text-xs text-[var(--color-textSecondary)]">
               Welcome back, <span className="font-bold text-[var(--color-text)]">{user?.username}</span>!
-              Here's your performance overview
+              {user?.role !== 'admin' ? ' Here\'s your performance overview' : ' Team performance overview'}
             </p>
           </div>
         </div>
@@ -707,8 +876,6 @@ const Dashboard: React.FC = () => {
                       {monthOptions.map((date, index) => {
                         const isSelected = format(date, 'yyyy-MM') === format(selectedMonth, 'yyyy-MM');
                         const isCurrent = isThisMonth(date);
-                        const isPast = date < new Date() && !isCurrent;
-                        const isFuture = date > new Date() && !isCurrent;
                         return (
                           <button
                             key={index}
@@ -742,14 +909,14 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Metrics Grid */}
+      {/* Main Metrics Grid with Real Trends */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <MetricCard
           icon={<CheckSquare size={20} />}
           title="Total Tasks"
           value={displayData?.totalTasks || 0}
           subtitle={viewMode === 'current' && isSameMonth(selectedMonth, new Date()) && isSameYear(selectedMonth, new Date()) ? 'Current Month' : (viewMode === 'current' ? format(selectedMonth, 'MMMM yyyy') : 'All time')}
-          trend={{ value: 12, direction: 'up' }}
+          trend={displayData?.trends?.totalTasks}
           percentage={100}
         />
         <MetricCard
@@ -757,7 +924,7 @@ const Dashboard: React.FC = () => {
           title="Pending"
           value={displayData?.pendingTasks || 0}
           subtitle="Awaiting completion"
-          trend={{ value: 5, direction: 'down' }}
+          trend={displayData?.trends?.pendingTasks}
           percentage={((displayData?.pendingTasks || 0) / (displayData?.totalTasks || 1)) * 100}
         />
         <MetricCard
@@ -765,7 +932,7 @@ const Dashboard: React.FC = () => {
           title="Completed"
           value={displayData?.completedTasks || 0}
           subtitle="Successfully finished"
-          trend={{ value: 18, direction: 'up' }}
+          trend={displayData?.trends?.completedTasks}
           percentage={((displayData?.completedTasks || 0) / (displayData?.totalTasks || 1)) * 100}
         />
         <MetricCard
@@ -773,7 +940,7 @@ const Dashboard: React.FC = () => {
           title="Overdue"
           value={displayData?.overdueTasks || 0}
           subtitle="Needs attention"
-          trend={{ value: 8, direction: 'down' }}
+          trend={displayData?.trends?.overdueTasks}
           percentage={((displayData?.overdueTasks || 0) / (displayData?.totalTasks || 1)) * 100}
         />
       </div>
@@ -800,7 +967,6 @@ const Dashboard: React.FC = () => {
         ))}
       </div>
 
-
       {/* Enhanced Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Task Status Distribution - Enhanced Pie Chart */}
@@ -811,8 +977,12 @@ const Dashboard: React.FC = () => {
                 <PieChartIcon size={20} />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-[var(--color-text)]">Task Status</h3>
-                <p className="text-xs text-[var(--color-textSecondary)]">Current distribution</p>
+                <h3 className="text-xl font-bold text-[var(--color-text)]">
+                  {user?.role === 'admin' ? 'Team Task Status' : 'Your Task Status'}
+                </h3>
+                <p className="text-xs text-[var(--color-textSecondary)]">
+                  {user?.role === 'admin' ? 'Team distribution' : 'Your current distribution'}
+                </p>
               </div>
             </div>
             <div className="text-sm px-4 py-2 rounded-full font-bold" style={{ backgroundColor: 'var(--color-primary)20', color: 'var(--color-primary)' }}>
@@ -859,8 +1029,12 @@ const Dashboard: React.FC = () => {
                 <BarChart3 size={20} />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-[var(--color-text)]">Task Types</h3>
-                <p className="text-xs text-[var(--color-textSecondary)]">Breakdown by category</p>
+                <h3 className="text-xl font-bold text-[var(--color-text)]">
+                  {user?.role === 'admin' ? 'Team Task Types' : 'Your Task Types'}
+                </h3>
+                <p className="text-xs text-[var(--color-textSecondary)]">
+                  {user?.role === 'admin' ? 'Team breakdown by category' : 'Your breakdown by category'}
+                </p>
               </div>
             </div>
           </div>
@@ -903,289 +1077,368 @@ const Dashboard: React.FC = () => {
         </ThemeCard>
       </div>
 
-      {/* Enhanced Completion Trend */}
-      <ThemeCard className="p-8" variant="glass">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <div className="p-4 rounded-3xl text-white shadow-2xl" style={{ background: `linear-gradient(135deg, var(--color-accent), var(--color-secondary))` }}>
-                <TrendingUp size={24} />
+      {/* Individual User Performance (Only show for non-admin users, moved after charts) */}
+      {user?.role !== 'admin' && dashboardData?.userPerformance && (
+        <UserPerformanceCard userPerformance={dashboardData.userPerformance} />
+      )}
+
+      {/* Enhanced Completion Trend and Recent Activity - Split 7:3 for non-admin users */}
+      <div className={`grid grid-cols-1 ${user?.role !== 'admin' ? 'xl:grid-cols-10' : ''} gap-8`}>
+        {/* Enhanced Completion Trend */}
+        <ThemeCard className={`p-8 ${user?.role !== 'admin' ? 'xl:col-span-7' : ''}`} variant="glass">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
+            <div className="flex items-center space-x-4">
+              <div className="relative">
+                <div className="p-4 rounded-3xl text-white shadow-2xl" style={{ background: `linear-gradient(135deg, var(--color-accent), var(--color-secondary))` }}>
+                  <TrendingUp size={24} />
+                </div>
+                <div className="absolute -inset-1 rounded-3xl opacity-30 blur-lg" style={{ background: `linear-gradient(135deg, var(--color-accent), var(--color-secondary))` }}></div>
               </div>
-              <div className="absolute -inset-1 rounded-3xl opacity-30 blur-lg" style={{ background: `linear-gradient(135deg, var(--color-accent), var(--color-secondary))` }}></div>
+              <div>
+                <h3 className="text-xl font-bold text-[var(--color-text)] mb-1">
+                  {user?.role === 'admin' ? 'Team Completion Trend' : 'Your Completion Trend'}
+                </h3>
+                <p className="text-xs text-[var(--color-textSecondary)]">
+                  {user?.role === 'admin' ? 'Team performance insights over the last 6 months' : 'Your performance insights over the last 6 months'}
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-xl font-bold text-[var(--color-text)] mb-1">Completion Trend</h3>
-              <p className="text-xs text-[var(--color-textSecondary)]">Performance insights over the last 6 months including current month</p>
+            <div className="flex items-center space-x-6 bg-[var(--color-surface)]/50 backdrop-blur-sm rounded-2xl p-4 border border-[var(--color-border)]">
+              <div className="flex items-center space-x-3">
+                <div className="relative">
+                  <div className="w-4 h-4 rounded-full shadow-lg" style={{ background: `linear-gradient(135deg, var(--color-success), var(--color-primary))` }}></div>
+                  <div className="absolute inset-0 w-4 h-4 rounded-full animate-pulse opacity-50" style={{ background: `linear-gradient(135deg, var(--color-success), var(--color-primary))` }}></div>
+                </div>
+                <span className="text-sm font-semibold text-[var(--color-text)]">Completed</span>
+                <div className="text-lg font-bold" style={{ color: 'var(--color-success)' }}>
+                  {trendData.reduce((sum, item) => sum + item.completed, 0)}
+                </div>
+              </div>
+              <div className="w-px h-8 bg-[var(--color-border)]"></div>
+              <div className="flex items-center space-x-3">
+                <div className="relative">
+                  <div className="w-4 h-4 rounded-full shadow-lg" style={{ background: `linear-gradient(135deg, var(--color-warning), var(--color-secondary))` }}></div>
+                  <div className="absolute inset-0 w-4 h-4 rounded-full animate-pulse opacity-50" style={{ background: `linear-gradient(135deg, var(--color-warning), var(--color-secondary))` }}></div>
+                </div>
+                <span className="text-sm font-semibold text-[var(--color-text)]">Planned</span>
+                <div className="text-lg font-bold" style={{ color: 'var(--color-warning)' }}>
+                  {trendData.reduce((sum, item) => sum + item.planned, 0)}
+                </div>
+              </div>
             </div>
           </div>
-          <div className="flex items-center space-x-6 bg-[var(--color-surface)]/50 backdrop-blur-sm rounded-2xl p-4 border border-[var(--color-border)]">
-            <div className="flex items-center space-x-3">
-              <div className="relative">
-                <div className="w-4 h-4 rounded-full shadow-lg" style={{ background: `linear-gradient(135deg, var(--color-success), var(--color-primary))` }}></div>
-                <div className="absolute inset-0 w-4 h-4 rounded-full animate-pulse opacity-50" style={{ background: `linear-gradient(135deg, var(--color-success), var(--color-primary))` }}></div>
-              </div>
-              <span className="text-sm font-semibold text-[var(--color-text)]">Completed</span>
-              <div className="text-lg font-bold" style={{ color: 'var(--color-success)' }}>
-                {trendData.reduce((sum, item) => sum + item.completed, 0)}
-              </div>
-            </div>
-            <div className="w-px h-8 bg-[var(--color-border)]"></div>
-            <div className="flex items-center space-x-3">
-              <div className="relative">
-                <div className="w-4 h-4 rounded-full shadow-lg" style={{ background: `linear-gradient(135deg, var(--color-warning), var(--color-secondary))` }}></div>
-                <div className="absolute inset-0 w-4 h-4 rounded-full animate-pulse opacity-50" style={{ background: `linear-gradient(135deg, var(--color-warning), var(--color-secondary))` }}></div>
-              </div>
-              <span className="text-sm font-semibold text-[var(--color-text)]">Planned</span>
-              <div className="text-lg font-bold" style={{ color: 'var(--color-warning)' }}>
-                {trendData.reduce((sum, item) => sum + item.planned, 0)}
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="relative">
-          <ResponsiveContainer width="100%" height={350}>
-            <AreaChart data={trendData} margin={{ top: 30, right: 40, left: 20, bottom: 20 }}>
-              <defs>
-                <linearGradient id="completedAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--color-success)" stopOpacity={0.8}/>
-                  <stop offset="95%" stopColor="var(--color-success)" stopOpacity={0.1}/>
-                </linearGradient>
-                <linearGradient id="completedStrokeGradient" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="var(--color-success)"/>
-                  <stop offset="100%" stopColor="var(--color-primary)"/>
-                </linearGradient>
-                <linearGradient id="plannedAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--color-warning)" stopOpacity={0.6}/>
-                  <stop offset="95%" stopColor="var(--color-warning)" stopOpacity={0.05}/>
-                </linearGradient>
-                <linearGradient id="plannedStrokeGradient" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="var(--color-warning)"/>
-                  <stop offset="100%" stopColor="var(--color-secondary)"/>
-                </linearGradient>
-                <filter id="glow">
-                  <feGaussianBlur stdDeviation="5" result="coloredBlur"/>
-                  <feMerge>
-                    <feMergeNode in="coloredBlur"/>
-                    <feMergeNode in="SourceGraphic"/>
-                  </feMerge>
-                </filter>
-                <filter id="dropshadow" x="-50%" y="-50%" width="200%" height="200%">
-                  <feDropShadow dx="0" dy="4" stdDeviation="5" floodOpacity="0.4"/>
-                </filter>
-              </defs>
-              <CartesianGrid
-                strokeDasharray="4 4"
-                stroke="var(--color-border)"
-                strokeOpacity={0.4}
-                vertical={false}
-              />
-              <XAxis
-                dataKey="month"
-                stroke="var(--color-textSecondary)"
-                fontSize={13}
-                fontWeight={500}
-                tickLine={false}
-                axisLine={false}
-                dy={10}
-                tick={{ fill: 'var(--color-textSecondary)' }}
-              />
-              <YAxis
-                stroke="var(--color-textSecondary)"
-                fontSize={12}
-                fontWeight={500}
-                tickLine={false}
-                axisLine={false}
-                dx={-10}
-                tick={{ fill: 'var(--color-textSecondary)' }}
-              />
-              <Tooltip
-                content={({ active, payload, label }) => {
-                  if (active && payload && payload.length) {
-                    return (
-                      <div className="bg-[var(--color-surface)]/95 backdrop-blur-xl border border-[var(--color-border)] rounded-2xl p-4 shadow-2xl">
-                        <p className="text-sm font-bold text-[var(--color-text)] mb-3">{label} {new Date().getFullYear()}</p>
-                        <div className="space-y-2">
-                          {payload.map((entry: any, index: number) => (
-                            <div key={index} className="flex items-center justify-between space-x-4">
-                              <div className="flex items-center space-x-2">
-                                <div
-                                  className="w-3 h-3 rounded-full shadow-sm"
-                                  style={{ backgroundColor: entry.color }}
-                                ></div>
-                                <span className="text-sm font-medium text-[var(--color-textSecondary)]">
-                                  {entry.name}:
+          <div className="relative">
+            <ResponsiveContainer width="100%" height={350}>
+              <AreaChart data={trendData} margin={{ top: 30, right: 40, left: 20, bottom: 20 }}>
+                <defs>
+                  <linearGradient id="completedAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--color-success)" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="var(--color-success)" stopOpacity={0.1}/>
+                  </linearGradient>
+                  <linearGradient id="completedStrokeGradient" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="var(--color-success)"/>
+                    <stop offset="100%" stopColor="var(--color-primary)"/>
+                  </linearGradient>
+                  <linearGradient id="plannedAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--color-warning)" stopOpacity={0.6}/>
+                    <stop offset="95%" stopColor="var(--color-warning)" stopOpacity={0.05}/>
+                  </linearGradient>
+                  <linearGradient id="plannedStrokeGradient" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="var(--color-warning)"/>
+                    <stop offset="100%" stopColor="var(--color-secondary)"/>
+                  </linearGradient>
+                  <filter id="glow">
+                    <feGaussianBlur stdDeviation="5" result="coloredBlur"/>
+                    <feMerge>
+                      <feMergeNode in="coloredBlur"/>
+                      <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                  </filter>
+                  <filter id="dropshadow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feDropShadow dx="0" dy="4" stdDeviation="5" floodOpacity="0.4"/>
+                  </filter>
+                </defs>
+                <CartesianGrid
+                  strokeDasharray="4 4"
+                  stroke="var(--color-border)"
+                  strokeOpacity={0.4}
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="month"
+                  stroke="var(--color-textSecondary)"
+                  fontSize={13}
+                  fontWeight={500}
+                  tickLine={false}
+                  axisLine={false}
+                  dy={10}
+                  tick={{ fill: 'var(--color-textSecondary)' }}
+                />
+                <YAxis
+                  stroke="var(--color-textSecondary)"
+                  fontSize={12}
+                  fontWeight={500}
+                  tickLine={false}
+                  axisLine={false}
+                  dx={-10}
+                  tick={{ fill: 'var(--color-textSecondary)' }}
+                />
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="bg-[var(--color-surface)]/95 backdrop-blur-xl border border-[var(--color-border)] rounded-2xl p-4 shadow-2xl">
+                          <p className="text-sm font-bold text-[var(--color-text)] mb-3">{label} {new Date().getFullYear()}</p>
+                          <div className="space-y-2">
+                            {payload.map((entry: any, index: number) => (
+                              <div key={index} className="flex items-center justify-between space-x-4">
+                                <div className="flex items-center space-x-2">
+                                  <div
+                                    className="w-3 h-3 rounded-full shadow-sm"
+                                    style={{ backgroundColor: entry.color }}
+                                  ></div>
+                                  <span className="text-sm font-medium text-[var(--color-textSecondary)]">
+                                    {entry.name}:
+                                  </span>
+                                </div>
+                                <span className="text-sm font-bold" style={{ color: entry.color }}>
+                                  {entry.value}
                                 </span>
                               </div>
-                              <span className="text-sm font-bold" style={{ color: entry.color }}>
-                                {entry.value}
-                              </span>
-                            </div>
-                          ))}
-                        </div>   
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
-              <Area
-                type="monotone"
-                dataKey="planned"
-                stroke="url(#plannedStrokeGradient)"
-                strokeWidth={3}
-                fillOpacity={1}
-                fill="url(#plannedAreaGradient)"
-                name="Planned Tasks"
-                dot={{
-                  fill: 'var(--color-warning)',
-                  stroke: 'var(--color-background)',
-                  strokeWidth: 2,
-                  r: 5,
-                }}
-                activeDot={{
-                  r: 7,
-                  fill: 'var(--color-warning)',
-                  stroke: 'var(--color-background)',
-                  strokeWidth: 3,
-                }}
-              />
-              <Area
-                type="monotone"
-                dataKey="completed"
-                stroke="url(#completedStrokeGradient)"
-                strokeWidth={3}
-                fillOpacity={1}
-                fill="url(#completedAreaGradient)"
-                name="Completed Tasks"
-                dot={{
-                  fill: 'var(--color-success)',
-                  stroke: 'var(--color-background)',
-                  strokeWidth: 2,
-                  r: 5,
-                }}
-                activeDot={{
-                  r: 7,
-                  fill: 'var(--color-success)',
-                  stroke: 'var(--color-background)',
-                  strokeWidth: 3,
-                }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-          <div className="absolute top-4 right-4 opacity-20">
-            <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: 'var(--color-primary)' }}></div>
-          </div>
-          <div className="absolute bottom-8 left-8 opacity-15">
-            <div className="w-3 h-3 rounded-full animate-pulse delay-1000" style={{ backgroundColor: 'var(--color-accent)' }}></div>
-          </div>
-        </div>
-        <div className="mt-4 pt-2 border-t border-[var(--color-border)] grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="text-center p-2 rounded-2xl" style={{ backgroundColor: 'var(--color-success)10' }}>
-            <div className="text-2xl font-bold mb-1" style={{ color: 'var(--color-success)' }}>
-              {Math.max(...trendData.map(d => d.completed))}
+                            ))}
+                          </div>   
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="planned"
+                  stroke="url(#plannedStrokeGradient)"
+                  strokeWidth={3}
+                  fillOpacity={1}
+                  fill="url(#plannedAreaGradient)"
+                  name="Planned Tasks"
+                  dot={{
+                    fill: 'var(--color-warning)',
+                    stroke: 'var(--color-background)',
+                    strokeWidth: 2,
+                    r: 5,
+                  }}
+                  activeDot={{
+                    r: 7,
+                    fill: 'var(--color-warning)',
+                    stroke: 'var(--color-background)',
+                    strokeWidth: 3,
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="completed"
+                  stroke="url(#completedStrokeGradient)"
+                  strokeWidth={3}
+                  fillOpacity={1}
+                  fill="url(#completedAreaGradient)"
+                  name="Completed Tasks"
+                  dot={{
+                    fill: 'var(--color-success)',
+                    stroke: 'var(--color-background)',
+                    strokeWidth: 2,
+                    r: 5,
+                  }}
+                  activeDot={{
+                    r: 7,
+                    fill: 'var(--color-success)',
+                    stroke: 'var(--color-background)',
+                    strokeWidth: 3,
+                  }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+            <div className="absolute top-4 right-4 opacity-20">
+              <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: 'var(--color-primary)' }}></div>
             </div>
-            <p className="text-xs font-semibold text-[var(--color-textSecondary)]">Peak Month</p>
-          </div>
-          <div className="text-center p-2 rounded-2xl" style={{ backgroundColor: 'var(--color-primary)10' }}>
-            <div className="text-2xl font-bold mb-1" style={{ color: 'var(--color-primary)' }}>
-              {(trendData.reduce((sum, item) => sum + item.completed, 0) / trendData.length).toFixed(1)}
+            <div className="absolute bottom-8 left-8 opacity-15">
+              <div className="w-3 h-3 rounded-full animate-pulse delay-1000" style={{ backgroundColor: 'var(--color-accent)' }}></div>
             </div>
-            <p className="text-xs font-semibold text-[var(--color-textSecondary)]">Avg per Month</p>
           </div>
-          <div className="text-center p-2 rounded-2xl" style={{ backgroundColor: 'var(--color-info)10' }}>
-            <div className="text-2xl font-bold mb-1" style={{ color: 'var(--color-info)' }}>
-              {trendData.length > 1 ?
-                (((trendData[trendData.length - 1].completed - trendData[0].completed) / (trendData[0].completed || 1)) * 100).toFixed(0) + '%'
-                : '0%'}
+          <div className="mt-4 pt-2 border-t border-[var(--color-border)] grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="text-center p-2 rounded-2xl" style={{ backgroundColor: 'var(--color-success)10' }}>
+              <div className="text-2xl font-bold mb-1" style={{ color: 'var(--color-success)' }}>
+                {Math.max(...trendData.map(d => d.completed))}
+              </div>
+              <p className="text-xs font-semibold text-[var(--color-textSecondary)]">Peak Month</p>
             </div>
-            <p className="text-xs font-semibold text-[var(--color-textSecondary)]">Growth Rate</p>
+            <div className="text-center p-2 rounded-2xl" style={{ backgroundColor: 'var(--color-primary)10' }}>
+              <div className="text-2xl font-bold mb-1" style={{ color: 'var(--color-primary)' }}>
+                {(trendData.reduce((sum, item) => sum + item.completed, 0) / trendData.length).toFixed(1)}
+              </div>
+              <p className="text-xs font-semibold text-[var(--color-textSecondary)]">Avg per Month</p>
+            </div>
+            <div className="text-center p-2 rounded-2xl" style={{ backgroundColor: 'var(--color-info)10' }}>
+              <div className="text-2xl font-bold mb-1" style={{ color: 'var(--color-info)' }}>
+                {trendData.length > 1 ?
+                  (((trendData[trendData.length - 1].completed - trendData[0].completed) / (trendData[0].completed || 1)) * 100).toFixed(0) + '%'
+                  : '0%'}
+              </div>
+              <p className="text-xs font-semibold text-[var(--color-textSecondary)]">Growth Rate</p>
+            </div>
           </div>
-        </div>
-      </ThemeCard>
+        </ThemeCard>
 
-      {/* Team Performance & Recent Activity */}
-      <div className="grid grid-cols-1 xl:grid-cols-10 gap-8">
-        {user?.role === 'admin' && dashboardData?.teamPerformance && dashboardData.teamPerformance.length > 0 && (
-          <ThemeCard className="p-8 xl:col-span-7" variant="glass">
+        {/* Recent Activity - Only show for non-admin users in 3-column layout */}
+        {user?.role !== 'admin' && (
+          <ThemeCard className="p-8 xl:col-span-3" variant="glass">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
               <div className="flex items-center space-x-3">
-                <div className="p-3 rounded-2xl text-white" style={{ background: `linear-gradient(135deg, var(--color-warning), var(--color-accent))` }}>
-                  <Trophy size={20} />
+                <div className="p-3 rounded-2xl text-white" style={{ background: `linear-gradient(135deg, var(--color-success), var(--color-primary))` }}>
+                  <Activity size={20} />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-[var(--color-text)]">Team Performance</h3>
-                  <p className="text-xs text-[var(--color-textSecondary)]">Top performers {viewMode === 'current' ? `this ${format(selectedMonth, 'MMMM')}` : 'all time'}</p>
+                  <h3 className="text-xl font-bold text-[var(--color-text)]">
+                    Your Recent Activity
+                  </h3>
+                  <p className="text-xs text-[var(--color-textSecondary)]">
+                    Your latest task updates
+                  </p>
                 </div>
               </div>
-              <div className="text-sm px-4 py-2 rounded-full font-bold whitespace-nowrap" style={{ backgroundColor: 'var(--color-warning)20', color: 'var(--color-warning)' }}>
-                Top {Math.min(dashboardData.teamPerformance.length, 6)}
+              <div className="text-sm px-4 py-2 rounded-full font-bold whitespace-nowrap" style={{ backgroundColor: 'var(--color-success)20', color: 'var(--color-success)' }}>
+                Last {dashboardData?.recentActivity?.slice(0, 10).length || 0}
               </div>
             </div>
-            <div className="space-y-4 max-h-[650px] overflow-y-auto">
-              {dashboardData.teamPerformance.slice(0, 6).map((member, index) => (
-                <TeamMemberCard key={member.username} member={member} rank={index + 1} />
-              ))}
+            <div className="space-y-3 max-h-[650px] overflow-y-auto">
+              {dashboardData?.recentActivity?.slice(0, 10).map((activity, index) => (
+                <div
+                  key={activity._id}
+                  className="flex items-start space-x-4 p-4 rounded-2xl border border-[var(--color-border)] hover:border-[var(--color-primary)]/30 transition-all duration-200"
+                  style={{ backgroundColor: 'var(--color-surface)' }}
+                >
+                  <div className="p-2 rounded-xl shadow-sm" style={{ backgroundColor: 'var(--color-background)' }}>
+                    {getActivityIcon(activity.type)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-[var(--color-text)] mb-1">
+                      <span className="mx-1 text-[var(--color-textSecondary)]">
+                        {activity.type === 'assigned' && 'You were assigned'}
+                        {activity.type === 'completed' && 'You completed'}
+                        {activity.type === 'overdue' && 'You have overdue'}
+                      </span>
+                      <span className="font-bold">{activity.title}</span>
+                    </p>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-1 sm:space-y-0 sm:space-x-3">
+                      <span className="text-xs px-3 py-1 rounded-full font-semibold" style={{ backgroundColor: 'var(--color-primary)20', color: 'var(--color-primary)' }}>
+                        {activity.taskType}
+                      </span>
+                      <span className="text-xs text-[var(--color-textSecondary)]">
+                        {format(new Date(activity.date), 'MMM d, h:mm a')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )) || (
+                <div className="text-center py-12 text-[var(--color-textSecondary)]">
+                  <Activity size={48} className="mx-auto mb-4 opacity-30" />
+                  <p className="text-lg font-semibold opacity-60">No recent activity</p>
+                  <p className="text-sm opacity-40">Activity will appear here as tasks are updated</p>
+                </div>
+              )}
             </div>
           </ThemeCard>
         )}
+      </div>
 
-        <ThemeCard className="p-8 xl:col-span-3" variant="glass">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-3 rounded-2xl text-white" style={{ background: `linear-gradient(135deg, var(--color-success), var(--color-primary))` }}>
-                <Activity size={20} />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-[var(--color-text)]">Recent Activity</h3>
-                <p className="text-xs text-[var(--color-textSecondary)]">Latest task updates</p>
-              </div>
-            </div>
-            <div className="text-sm px-4 py-2 rounded-full font-bold whitespace-nowrap" style={{ backgroundColor: 'var(--color-success)20', color: 'var(--color-success)' }}>
-              Last {dashboardData?.recentActivity?.slice(0, 10).length || 0}
-            </div>
-          </div>
-          <div className="space-y-3 max-h-[650px] overflow-y-auto">
-            {dashboardData?.recentActivity?.slice(0, 10).map((activity, index) => (
-              <div
-                key={activity._id}
-                className="flex items-start space-x-4 p-4 rounded-2xl border border-[var(--color-border)] hover:border-[var(--color-primary)]/30 transition-all duration-200"
-                style={{ backgroundColor: 'var(--color-surface)' }}
-              >
-                <div className="p-2 rounded-xl shadow-sm" style={{ backgroundColor: 'var(--color-background)' }}>
-                  {getActivityIcon(activity.type)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-[var(--color-text)] mb-1">
-                    <span className="font-bold">{activity.username}</span>
-                    <span className="mx-1 text-[var(--color-textSecondary)]">
-                      {activity.type === 'assigned' && 'was assigned'}
-                      {activity.type === 'completed' && 'completed'}
-                      {activity.type === 'overdue' && 'has overdue'}
-                    </span>
-                    <span className="font-bold">{activity.title}</span>
-                  </p>
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-1 sm:space-y-0 sm:space-x-3">
-                    <span className="text-xs px-3 py-1 rounded-full font-semibold" style={{ backgroundColor: 'var(--color-primary)20', color: 'var(--color-primary)' }}>
-                      {activity.taskType}
-                    </span>
-                    <span className="text-xs text-[var(--color-textSecondary)]">
-                      {format(new Date(activity.date), 'MMM d, h:mm a')}
-                    </span>
+      {/* Team Performance & Recent Activity for Admin */}
+      {user?.role === 'admin' && (
+        <div className="grid grid-cols-1 xl:grid-cols-10 gap-8">
+          {dashboardData?.teamPerformance && dashboardData.teamPerformance.length > 0 && (
+            <ThemeCard className="p-8 xl:col-span-7" variant="glass">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+                <div className="flex items-center space-x-3">
+                  <div className="p-3 rounded-2xl text-white" style={{ background: `linear-gradient(135deg, var(--color-warning), var(--color-accent))` }}>
+                    <Trophy size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-[var(--color-text)]">Team Performance</h3>
+                    <p className="text-xs text-[var(--color-textSecondary)]">Top performers {viewMode === 'current' ? `this ${format(selectedMonth, 'MMMM')}` : 'all time'}</p>
                   </div>
                 </div>
+                <div className="text-sm px-4 py-2 rounded-full font-bold whitespace-nowrap" style={{ backgroundColor: 'var(--color-warning)20', color: 'var(--color-warning)' }}>
+                  Top {Math.min(dashboardData.teamPerformance.length, 6)}
+                </div>
               </div>
-            )) || (
-              <div className="text-center py-12 text-[var(--color-textSecondary)]">
-                <Activity size={48} className="mx-auto mb-4 opacity-30" />
-                <p className="text-lg font-semibold opacity-60">No recent activity</p>
-                <p className="text-sm opacity-40">Activity will appear here as tasks are updated</p>
+              <div className="space-y-4 max-h-[650px] overflow-y-auto">
+                {dashboardData.teamPerformance.slice(0, 6).map((member, index) => (
+                  <TeamMemberCard key={member.username} member={member} rank={index + 1} />
+                ))}
               </div>
-            )}
-          </div>
-        </ThemeCard>
-      </div>
+            </ThemeCard>
+          )}
+
+          <ThemeCard className="p-8 xl:col-span-3" variant="glass">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-3 rounded-2xl text-white" style={{ background: `linear-gradient(135deg, var(--color-success), var(--color-primary))` }}>
+                  <Activity size={20} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-[var(--color-text)]">
+                    Recent Activity
+                  </h3>
+                  <p className="text-xs text-[var(--color-textSecondary)]">
+                    Latest team task updates
+                  </p>
+                </div>
+              </div>
+              <div className="text-sm px-4 py-2 rounded-full font-bold whitespace-nowrap" style={{ backgroundColor: 'var(--color-success)20', color: 'var(--color-success)' }}>
+                Last {dashboardData?.recentActivity?.slice(0, 10).length || 0}
+              </div>
+            </div>
+            <div className="space-y-3 max-h-[650px] overflow-y-auto">
+              {dashboardData?.recentActivity?.slice(0, 10).map((activity, index) => (
+                <div
+                  key={activity._id}
+                  className="flex items-start space-x-4 p-4 rounded-2xl border border-[var(--color-border)] hover:border-[var(--color-primary)]/30 transition-all duration-200"
+                  style={{ backgroundColor: 'var(--color-surface)' }}
+                >
+                  <div className="p-2 rounded-xl shadow-sm" style={{ backgroundColor: 'var(--color-background)' }}>
+                    {getActivityIcon(activity.type)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-[var(--color-text)] mb-1">
+                      <span className="font-bold">{activity.username}</span>
+                      <span className="mx-1 text-[var(--color-textSecondary)]">
+                        {activity.type === 'assigned' && 'was assigned'}
+                        {activity.type === 'completed' && 'completed'}
+                        {activity.type === 'overdue' && 'has overdue'}
+                      </span>
+                      <span className="font-bold">{activity.title}</span>
+                    </p>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-1 sm:space-y-0 sm:space-x-3">
+                      <span className="text-xs px-3 py-1 rounded-full font-semibold" style={{ backgroundColor: 'var(--color-primary)20', color: 'var(--color-primary)' }}>
+                        {activity.taskType}
+                      </span>
+                      <span className="text-xs text-[var(--color-textSecondary)]">
+                        {format(new Date(activity.date), 'MMM d, h:mm a')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )) || (
+                <div className="text-center py-12 text-[var(--color-textSecondary)]">
+                  <Activity size={48} className="mx-auto mb-4 opacity-30" />
+                  <p className="text-lg font-semibold opacity-60">No recent activity</p>
+                  <p className="text-sm opacity-40">Activity will appear here as tasks are updated</p>
+                </div>
+              )}
+            </div>
+          </ThemeCard>
+        </div>
+      )}
     </div>
   );
 };
 
-export default Dashboard;      
+export default Dashboard;
