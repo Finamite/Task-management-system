@@ -1,16 +1,18 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
-import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import multer from 'multer';
+import fs from 'fs';
 import dotenv from 'dotenv';
 
-// Routes
+// Import routes
 import authRoutes from './routes/auth.js';
 import taskRoutes from './routes/tasks.js';
 import userRoutes from './routes/users.js';
 import dashboardRoutes from './routes/dashboard.js';
+import settingsRoutes from './routes/settings.js';
 
 dotenv.config();
 
@@ -23,62 +25,84 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// File upload configuration
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Configure multer for file uploads
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, 'uploads'));
+  destination: function (req, file, cb) {
+    cb(null, uploadsDir);
   },
-  filename: (req, file, cb) => {
+  filename: function (req, file, cb) {
+    // Generate unique filename with timestamp
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    const extension = path.extname(file.originalname);
+    cb(null, file.fieldname + '-' + uniqueSuffix + extension);
   }
 });
 
-const upload = multer({
+const upload = multer({ 
   storage: storage,
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: function (req, file, cb) {
+    // Accept all file types for now
+    cb(null, true);
   }
 });
+
+// File upload endpoint
+app.post('/api/upload', upload.array('files', 10), (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: 'No files uploaded' });
+    }
+
+    const fileInfo = req.files.map(file => ({
+      filename: file.filename,
+      originalName: file.originalname,
+      path: file.path,
+      size: file.size,
+      uploadedAt: new Date()
+    }));
+
+    res.json({ 
+      message: 'Files uploaded successfully', 
+      files: fileInfo 
+    });
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({ message: 'Server error during file upload' });
+  }
+});
+
+// Serve uploaded files statically
+app.use('/uploads', express.static(uploadsDir));
 
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-
-// File upload endpoint
-app.post('/api/upload', upload.single('attachment'), (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'No file uploaded' });
-    }
-    
-    res.json({
-      filename: req.file.filename,
-      originalName: req.file.originalname,
-      size: req.file.size,
-      path: `/uploads/${req.file.filename}`
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'File upload failed', error: error.message });
-  }
-});
+app.use('/api/settings', settingsRoutes);
 
 // MongoDB connection
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
     console.log('Connected to MongoDB');
     
-    // Create default admin user
-    import('./models/User.js').then(({ default: User }) => {
-      User.findOne({ username: 'Admin' }).then(adminUser => {
-        if (!adminUser) {
+    // Check if admin user exists, if not create one
+    const User = mongoose.model('User');
+    User.findOne({ email: 'admin@taskmanagement.com' })
+      .then(existingAdmin => {
+        if (!existingAdmin) {
           const admin = new User({
-            username: 'Admin',
-            password: '123456',
+            username: 'admin',
             email: 'admin@taskmanagement.com',
             role: 'admin',
             permissions: {
@@ -87,20 +111,20 @@ mongoose.connect(process.env.MONGO_URI)
               canAssignTasks: true,
               canDeleteTasks: true,
               canEditTasks: true,
-              canManageUsers: true
+              canManageUsers: true,
+              canEditRecurringTaskSchedules: true
             }
           });
           admin.save().then(() => {
-            console.log('Default admin user created');
+            console.log('Admin user created');
           });
         }
       });
+    
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
     });
   })
   .catch((error) => {
     console.error('MongoDB connection error:', error);
   });
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});

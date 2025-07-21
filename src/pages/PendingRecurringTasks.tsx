@@ -7,6 +7,8 @@ import axios from 'axios';
 import ViewToggle from '../components/ViewToggle';
 import PriorityBadge from '../components/PriorityBadge';
 import TaskTypeBadge from '../components/TaskTypeBadge';
+import TaskCompletionModal from '../components/TaskCompletionModal';
+import { useTaskSettings } from '../hooks/useTaskSettings';
 
 interface Attachment {
   filename: string;
@@ -83,6 +85,7 @@ const getInitialViewPreference = (): 'card' | 'table' => {
 const PendingRecurringTasks: React.FC = () => {
   const { user } = useAuth();
   const { isDark } = useTheme();
+  const { settings: taskSettings, loading: settingsLoading } = useTaskSettings();
   
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
@@ -100,7 +103,6 @@ const PendingRecurringTasks: React.FC = () => {
   });
   const [showFilters, setShowFilters] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState<string | null>(null);
-  const [completionRemarks, setCompletionRemarks] = useState('');
   const [showAttachmentsModal, setShowAttachmentsModal] = useState<Attachment[] | null>(null); // State for attachments modal
   const [selectedImagePreview, setSelectedImagePreview] = useState<string | null>(null); // State for full-screen image preview
   const [showFullDescription, setShowFullDescription] = useState<{ [key: string]: boolean }>({}); // State to manage full description visibility
@@ -270,19 +272,13 @@ const PendingRecurringTasks: React.FC = () => {
     }
   };
 
-  const handleCompleteTask = async (taskId: string) => {
-    try {
-      const payload: { completionRemarks?: string } = {};
-      if (completionRemarks.trim()) {
-        payload.completionRemarks = completionRemarks.trim();
-      }
-      await axios.post(`http://localhost:5000/api/tasks/${taskId}/complete`, payload);
-      setShowCompleteModal(null);
-      setCompletionRemarks('');
-      fetchTasks();
-    } catch (error) {
-      console.error('Error completing task:', error);
-    }
+  const handleTaskCompletion = () => {
+    setShowCompleteModal(null);
+    fetchTasks();
+  };
+
+  const getTaskToComplete = () => {
+    return allTasks.find(task => task._id === showCompleteModal);
   };
   
   const resetFilters = () => {
@@ -530,7 +526,7 @@ const PendingRecurringTasks: React.FC = () => {
     </div>
   );
 
-  if (loading) {
+  if (loading || settingsLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--color-primary)]"></div>
@@ -540,6 +536,7 @@ const PendingRecurringTasks: React.FC = () => {
 
   const dailyTasksCount = getDailyTasks().length;
   const cyclicTasksCount = getCyclicTasks().length;
+  const completingTask = getTaskToComplete();
 
   return (
     <div className="min-h-screen bg-[var(--color-background)] p-4 space-y-3">
@@ -805,49 +802,18 @@ const PendingRecurringTasks: React.FC = () => {
         </>
       )}
 
-      {showCompleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[var(--color-background)] rounded-xl max-w-md w-full shadow-2xl">
-            <div className="p-6">
-              <div className="flex items-center mb-4">
-                <div className="w-12 h-12 bg-[var(--color-success)]/20 rounded-full flex items-center justify-center mr-4">
-                  <CheckSquare size={24} className="text-[var(--color-success)]" />
-                </div>
-                <h3 className="text-lg font-semibold text-[var(--color-text)]">Complete Task</h3>
-              </div>
-              <p className="text-sm text-[var(--color-textSecondary)] mb-4 bg-[var(--color-primary)]/10 p-3 rounded-lg border-l-4 border-[var(--color-primary)]">
-                This will mark the task as complete. For recurring tasks, the next occurrence will be automatically scheduled.
-              </p>
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-[var(--color-text)] mb-2">
-                  Completion Remarks <span className="text-[var(--color-textSecondary)] text-xs">(Optional)</span>
-                </label>
-                <textarea
-                  value={completionRemarks}
-                  onChange={(e) => setCompletionRemarks(e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-[var(--color-primary)] transition-colors"
-                  placeholder="Add completion notes, observations, or any relevant details..."
-                />
-              </div>
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => handleCompleteTask(showCompleteModal)}
-                  className="flex-1 py-3 px-4 bg-[var(--color-success)] hover:opacity-90 text-white rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
-                >
-                  <CheckSquare size={18} />
-                  Complete Task
-                </button>
-                <button
-                  onClick={() => { setShowCompleteModal(null); setCompletionRemarks(''); }}
-                  className="flex-1 py-3 px-4 bg-[var(--color-surface)] hover:bg-[var(--color-border)] text-[var(--color-text)] rounded-lg font-medium transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* Task Completion Modal */}
+      {showCompleteModal && completingTask && (
+        <TaskCompletionModal
+          taskId={showCompleteModal}
+          taskTitle={completingTask.title}
+          isRecurring={true}
+          allowAttachments={taskSettings.pendingRecurringTasks.allowAttachments}
+          mandatoryAttachments={taskSettings.pendingRecurringTasks.mandatoryAttachments}
+          mandatoryRemarks={taskSettings.pendingRecurringTasks.mandatoryRemarks}
+          onClose={() => setShowCompleteModal(null)}
+          onComplete={handleTaskCompletion}
+        />
       )}
 
       {/* Attachments Modal */}

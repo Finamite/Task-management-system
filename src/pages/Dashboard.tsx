@@ -10,7 +10,7 @@ import {
   ChevronDown, Award, Star, Zap, ArrowUp, ArrowDown, BarChart3,
   PieChart as PieChartIcon, Trophy,
   Clock4, CalendarDays, RefreshCw, UserCheck, TrendingUpIcon,
-  PercentIcon, ClockIcon, User
+  PercentIcon, ClockIcon, User, Users, Filter
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
@@ -139,6 +139,11 @@ const Dashboard: React.FC = () => {
   const [showMonthFilter, setShowMonthFilter] = useState(false);
   const [viewMode, setViewMode] = useState<'current' | 'all-time'>('current');
   const [showThemeSelector, setShowThemeSelector] = useState(false);
+  
+  // New states for team member selection
+  const [selectedTeamMember, setSelectedTeamMember] = useState<string>('all');
+  const [showTeamMemberFilter, setShowTeamMemberFilter] = useState(false);
+  const [memberTrendData, setMemberTrendData] = useState<any[]>([]);
 
   // --- ThemeCard Component (kept as is, good utility component) ---
   const ThemeCard = ({ children, className = "", variant = "default", hover = true }: {
@@ -648,6 +653,26 @@ const Dashboard: React.FC = () => {
     }
   }, [user]);
 
+  // New function to fetch individual member trend data
+  const fetchMemberTrendData = useCallback(async (memberUsername: string, startDate?: string, endDate?: string) => {
+    try {
+      const params: any = {
+        memberUsername,
+        isAdmin: 'true'
+      };
+      if (startDate && endDate) {
+        params.startDate = startDate;
+        params.endDate = endDate;
+      }
+      
+      const response = await axios.get(`http://localhost:5000/api/dashboard/member-trend`, { params });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching member trend data:', error);
+      return null;
+    }
+  }, []);
+
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
@@ -681,6 +706,33 @@ const Dashboard: React.FC = () => {
       loadData();
     }
   }, [user, selectedMonth, viewMode, fetchDashboardAnalytics, fetchTaskCounts]);
+
+  // Load member trend data when selected team member changes
+  useEffect(() => {
+    const loadMemberTrendData = async () => {
+      if (user?.role === 'admin' && selectedTeamMember && selectedTeamMember !== 'all') {
+        try {
+          let memberTrendDataResult = null;
+          
+          if (viewMode === 'current') {
+            const monthStart = startOfMonth(selectedMonth);
+            const monthEnd = endOfMonth(selectedMonth);
+            memberTrendDataResult = await fetchMemberTrendData(selectedTeamMember, monthStart.toISOString(), monthEnd.toISOString());
+          } else {
+            memberTrendDataResult = await fetchMemberTrendData(selectedTeamMember);
+          }
+          
+          if (memberTrendDataResult) {
+            setMemberTrendData(memberTrendDataResult);
+          }
+        } catch (error) {
+          console.error('Error loading member trend data:', error);
+        }
+      }
+    };
+
+    loadMemberTrendData();
+  }, [selectedTeamMember, viewMode, selectedMonth, fetchMemberTrendData, user?.role]);
 
   // --- Helper Functions ---
   const generateMonthOptions = () => {
@@ -718,6 +770,12 @@ const Dashboard: React.FC = () => {
     const trendMonths: { month: string; completed: number; planned: number; }[] = [];
     const currentDate = new Date();
 
+    // If a specific team member is selected and we have their data, use it
+    if (selectedTeamMember !== 'all' && memberTrendData && memberTrendData.length > 0) {
+      return memberTrendData;
+    }
+
+    // Otherwise use the overall team data
     // Generate last 6 months including current month
     for (let i = 5; i >= 0; i--) {
       const date = subMonths(currentDate, i);
@@ -793,6 +851,19 @@ const Dashboard: React.FC = () => {
       default: return <Activity size={16} style={{ color: 'var(--color-secondary)' }} />;
     }
   };
+
+  // Get team members list for the dropdown
+  const getTeamMembersList = () => {
+    if (!dashboardData?.teamPerformance || user?.role !== 'admin') return [];
+    
+    return dashboardData.teamPerformance.map(member => ({
+      username: member.username,
+      totalTasks: member.totalTasks,
+      completionRate: member.totalTasks > 0 ? (member.completedTasks / member.totalTasks) * 100 : 0
+    }));
+  };
+
+  const teamMembersList = getTeamMembersList();
 
   if (loading) {
     return (
@@ -1084,7 +1155,7 @@ const Dashboard: React.FC = () => {
 
       {/* Enhanced Completion Trend and Recent Activity - Split 7:3 for non-admin users */}
       <div className={`grid grid-cols-1 ${user?.role !== 'admin' ? 'xl:grid-cols-10' : ''} gap-8`}>
-        {/* Enhanced Completion Trend */}
+        {/* Enhanced Completion Trend with Team Member Selector */}
         <ThemeCard className={`p-8 ${user?.role !== 'admin' ? 'xl:col-span-7' : ''}`} variant="glass">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
             <div className="flex items-center space-x-4">
@@ -1103,30 +1174,130 @@ const Dashboard: React.FC = () => {
                 </p>
               </div>
             </div>
-            <div className="flex items-center space-x-6 bg-[var(--color-surface)]/50 backdrop-blur-sm rounded-2xl p-4 border border-[var(--color-border)]">
-              <div className="flex items-center space-x-3">
-                <div className="relative">
-                  <div className="w-4 h-4 rounded-full shadow-lg" style={{ background: `linear-gradient(135deg, var(--color-success), var(--color-primary))` }}></div>
-                  <div className="absolute inset-0 w-4 h-4 rounded-full animate-pulse opacity-50" style={{ background: `linear-gradient(135deg, var(--color-success), var(--color-primary))` }}></div>
+            
+            <div className="flex items-center space-x-4">
+              {/* Team Member Selector - Only show for admin users */}
+              {user?.role === 'admin' && teamMembersList.length > 0 && (
+                <div className="relative z-10">
+                  <button
+                    onClick={() => setShowTeamMemberFilter(!showTeamMemberFilter)}
+                    className="flex items-center px-4 py-2 bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] shadow-lg hover:shadow-xl transition-all duration-200 text-[var(--color-text)] font-semibold"
+                  >
+                    <Users size={16} className="mr-2" />
+                    <span>
+                      {selectedTeamMember === 'all' ? 'All Team' : selectedTeamMember}
+                    </span>
+                    <ChevronDown size={16} className="ml-2" />
+                  </button>
+                  {showTeamMemberFilter && (
+                    <div className="absolute right-0 top-full mt-2 w-64 z-20">
+                      <ThemeCard className="p-3 max-h-80 overflow-y-auto" variant="elevated" hover={false}>
+                        <div className="space-y-2">
+                          <button
+                            onClick={() => {
+                              setSelectedTeamMember('all');
+                              setShowTeamMemberFilter(false);
+                            }}
+                            className={`w-full text-left px-3 py-3 rounded-xl transition-all duration-200 ${
+                              selectedTeamMember === 'all'
+                                ? 'bg-[var(--color-primary)] text-white shadow-lg'
+                                : 'hover:bg-[var(--color-border)] text-[var(--color-text)]'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-8 h-8 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
+                                  <Users size={16} />
+                                </div>
+                                <div>
+                                  <span className="font-semibold">All Team</span>
+                                  <p className="text-xs opacity-75">Overall team data</p>
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                          {teamMembersList.map((member, index) => (
+                            <button
+                              key={member.username}
+                              onClick={() => {
+                                setSelectedTeamMember(member.username);
+                                setShowTeamMemberFilter(false);
+                              }}
+                              className={`w-full text-left px-3 py-3 rounded-xl transition-all duration-200 ${
+                                selectedTeamMember === member.username
+                                  ? 'bg-[var(--color-primary)] text-white shadow-lg'
+                                  : 'hover:bg-[var(--color-border)] text-[var(--color-text)]'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-8 h-8 rounded-xl bg-gradient-to-r from-blue-400 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
+                                    {member.username.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <span className="font-semibold">{member.username}</span>
+                                    <p className="text-xs opacity-75">{member.totalTasks} tasks • {member.completionRate.toFixed(1)}% completion</p>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-sm font-bold opacity-75">#{index + 1}</div>
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </ThemeCard>
+                    </div>
+                  )}
                 </div>
-                <span className="text-sm font-semibold text-[var(--color-text)]">Completed</span>
-                <div className="text-lg font-bold" style={{ color: 'var(--color-success)' }}>
-                  {trendData.reduce((sum, item) => sum + item.completed, 0)}
+              )}
+
+              {/* Stats Display */}
+              <div className="flex items-center space-x-6 bg-[var(--color-surface)]/50 backdrop-blur-sm rounded-2xl p-4 border border-[var(--color-border)]">
+                <div className="flex items-center space-x-3">
+                  <div className="relative">
+                    <div className="w-4 h-4 rounded-full shadow-lg" style={{ background: `linear-gradient(135deg, var(--color-success), var(--color-primary))` }}></div>
+                    <div className="absolute inset-0 w-4 h-4 rounded-full animate-pulse opacity-50" style={{ background: `linear-gradient(135deg, var(--color-success), var(--color-primary))` }}></div>
+                  </div>
+                  <span className="text-sm font-semibold text-[var(--color-text)]">Completed</span>
+                  <div className="text-lg font-bold" style={{ color: 'var(--color-success)' }}>
+                    {trendData.reduce((sum, item) => sum + item.completed, 0)}
+                  </div>
                 </div>
-              </div>
-              <div className="w-px h-8 bg-[var(--color-border)]"></div>
-              <div className="flex items-center space-x-3">
-                <div className="relative">
-                  <div className="w-4 h-4 rounded-full shadow-lg" style={{ background: `linear-gradient(135deg, var(--color-warning), var(--color-secondary))` }}></div>
-                  <div className="absolute inset-0 w-4 h-4 rounded-full animate-pulse opacity-50" style={{ background: `linear-gradient(135deg, var(--color-warning), var(--color-secondary))` }}></div>
-                </div>
-                <span className="text-sm font-semibold text-[var(--color-text)]">Planned</span>
-                <div className="text-lg font-bold" style={{ color: 'var(--color-warning)' }}>
-                  {trendData.reduce((sum, item) => sum + item.planned, 0)}
+                <div className="w-px h-8 bg-[var(--color-border)]"></div>
+                <div className="flex items-center space-x-3">
+                  <div className="relative">
+                    <div className="w-4 h-4 rounded-full shadow-lg" style={{ background: `linear-gradient(135deg, var(--color-warning), var(--color-secondary))` }}></div>
+                    <div className="absolute inset-0 w-4 h-4 rounded-full animate-pulse opacity-50" style={{ background: `linear-gradient(135deg, var(--color-warning), var(--color-secondary))` }}></div>
+                  </div>
+                  <span className="text-sm font-semibold text-[var(--color-text)]">Planned</span>
+                  <div className="text-lg font-bold" style={{ color: 'var(--color-warning)' }}>
+                    {trendData.reduce((sum, item) => sum + item.planned, 0)}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
+          
+          {/* Selected Member Info Banner */}
+          {user?.role === 'admin' && selectedTeamMember !== 'all' && (
+            <div className="mb-6 p-4 rounded-2xl border border-[var(--color-primary)]/30" style={{ backgroundColor: 'var(--color-primary)05' }}>
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-r from-blue-400 to-purple-600 flex items-center justify-center text-white font-bold">
+                  {selectedTeamMember.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <h4 className="text-lg font-bold text-[var(--color-text)]">
+                    {selectedTeamMember}'s Performance Trend
+                  </h4>
+                  <p className="text-sm text-[var(--color-textSecondary)]">
+                    Showing individual completion data for {selectedTeamMember}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="relative">
             <ResponsiveContainer width="100%" height={350}>
               <AreaChart data={trendData} margin={{ top: 30, right: 40, left: 20, bottom: 20 }}>
@@ -1188,7 +1359,14 @@ const Dashboard: React.FC = () => {
                     if (active && payload && payload.length) {
                       return (
                         <div className="bg-[var(--color-surface)]/95 backdrop-blur-xl border border-[var(--color-border)] rounded-2xl p-4 shadow-2xl">
-                          <p className="text-sm font-bold text-[var(--color-text)] mb-3">{label} {new Date().getFullYear()}</p>
+                          <p className="text-sm font-bold text-[var(--color-text)] mb-3">
+                            {label} {new Date().getFullYear()}
+                            {selectedTeamMember !== 'all' && (
+                              <span className="block text-xs opacity-75">
+                                {selectedTeamMember}'s Data
+                              </span>
+                            )}
+                          </p>
                           <div className="space-y-2">
                             {payload.map((entry: any, index: number) => (
                               <div key={index} className="flex items-center justify-between space-x-4">
@@ -1269,7 +1447,9 @@ const Dashboard: React.FC = () => {
               <div className="text-2xl font-bold mb-1" style={{ color: 'var(--color-success)' }}>
                 {Math.max(...trendData.map(d => d.completed))}
               </div>
-              <p className="text-xs font-semibold text-[var(--color-textSecondary)]">Peak Month</p>
+              <p className="text-xs font-semibold text-[var(--color-textSecondary)]">
+                {selectedTeamMember !== 'all' ? 'Peak Month' : 'Peak Month'}
+              </p>
             </div>
             <div className="text-center p-2 rounded-2xl" style={{ backgroundColor: 'var(--color-primary)10' }}>
               <div className="text-2xl font-bold mb-1" style={{ color: 'var(--color-primary)' }}>

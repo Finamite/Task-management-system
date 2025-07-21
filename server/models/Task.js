@@ -67,6 +67,16 @@ const taskSchema = new mongoose.Schema({
   },
   completedAt: Date,
   completionRemarks: String,
+  completionAttachments: [{
+    filename: String,
+    originalName: String,
+    path: String,
+    size: Number,
+    uploadedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   attachments: [{
     filename: String,
     originalName: String,

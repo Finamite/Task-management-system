@@ -473,10 +473,10 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Complete task - FIXED LOGIC FOR RECURRING TASKS ONLY
+// Complete task - UPDATED TO HANDLE COMPLETION ATTACHMENTS
 router.post('/:id/complete', async (req, res) => {
   try {
-    const { completionRemarks } = req.body;
+    const { completionRemarks, completionAttachments } = req.body;
     const task = await Task.findById(req.params.id);
 
     if (!task) {
@@ -486,9 +486,15 @@ router.post('/:id/complete', async (req, res) => {
     // 1. Mark the current task instance as completed
     task.status = 'completed';
     task.completedAt = new Date();
+    
     if (completionRemarks && completionRemarks.trim()) {
       task.completionRemarks = completionRemarks.trim();
     }
+    
+    if (completionAttachments && completionAttachments.length > 0) {
+      task.completionAttachments = completionAttachments;
+    }
+    
     task.lastCompletedDate = new Date(); // Record when this instance was completed
 
     // 2. REMOVED: Automatic creation of new recurring task instances
@@ -560,10 +566,10 @@ router.delete('/:id', async (req, res) => {
     }
 
     res.json({ message: 'Task deleted successfully' });
-  // } catch (error) {
-  //   console.error('Error deleting task:', error);
-  //   res.status(500).json({ message: 'Server error', error: error.message });
-  // }
+  } catch (error) {
+    console.error('Error deleting task:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
 });
 
 export default router;

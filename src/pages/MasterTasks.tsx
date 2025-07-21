@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Archive, History, Filter, Search, Trash2, Users, Calendar, ChevronDown, ChevronUp, ArrowUpDown, Eye, Paperclip, FileText, Edit3, RotateCcw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Archive, History, Filter, Search, Trash2, Users, Calendar, ChevronDown, ChevronUp, ArrowUpDown, Eye, Paperclip, FileText, Edit3, RotateCcw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Info, Download, ExternalLink } from 'lucide-react';
 import axios from 'axios';
 import ViewToggle from '../components/ViewToggle';
 import StatusBadge from '../components/StatusBadge';
@@ -37,8 +37,10 @@ interface Task {
   revisionCount: number;
   revisions: Revision[];
   completedAt?: string;
+  completionRemarks?: string;
   createdAt: string;
   attachments: Attachment[];
+  completionAttachments?: Attachment[];
 }
 
 interface User {
@@ -127,9 +129,10 @@ const MasterTasks: React.FC = () => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
-  const [showAttachmentsModal, setShowAttachmentsModal] = useState<Attachment[] | null>(null);
+  const [showAttachmentsModal, setShowAttachmentsModal] = useState<{attachments: Attachment[], type: 'task' | 'completion'} | null>(null);
   const [selectedImagePreview, setSelectedImagePreview] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [showRemarksModal, setShowRemarksModal] = useState<Task | null>(null);
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredTasks.length / itemsPerPage);
@@ -340,6 +343,14 @@ const MasterTasks: React.FC = () => {
     return imageExtensions.some(ext => lowercasedFilename.endsWith(ext));
   };
 
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
   const renderCardView = () => (
     <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
       {currentTasks.map((task) => {
@@ -446,7 +457,7 @@ const MasterTasks: React.FC = () => {
                   </span>
                   {task.attachments && task.attachments.length > 0 ? (
                     <button
-                      onClick={() => setShowAttachmentsModal(task.attachments)}
+                      onClick={() => setShowAttachmentsModal({attachments: task.attachments, type: 'task'})}
                       className={`font-medium ${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'}`}
                     >
                       Click Here ({task.attachments.length})
@@ -474,10 +485,35 @@ const MasterTasks: React.FC = () => {
                 </div>
                 {task.completedAt && (
                   <div className={`flex items-center justify-between p-2 rounded-lg ${isDark ? 'bg-purple-900' : 'bg-purple-50'}`}>
-                    <span className={`${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Completed:</span>
+                    <span className={`flex items-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                      Completed:
+                      {task.completionRemarks && (
+                        <button
+                          onClick={() => setShowRemarksModal(task)}
+                          className={`ml-1 ${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'}`}
+                          title="View completion remarks"
+                        >
+                          <Info size={14} />
+                        </button>
+                      )}
+                    </span>
                     <span className={`font-medium ${isDark ? 'text-purple-100' : 'text-purple-900'}`}>
                       {new Date(task.completedAt).toLocaleDateString()}
                     </span>
+                  </div>
+                )}
+                {task.completionAttachments && task.completionAttachments.length > 0 && (
+                  <div className={`flex items-center justify-between p-2 rounded-lg ${isDark ? 'bg-green-900' : 'bg-green-50'}`}>
+                    <span className={`flex items-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                      <Paperclip size={14} className="mr-2" />
+                      Completion Files:
+                    </span>
+                    <button
+                      onClick={() => setShowAttachmentsModal({attachments: task.completionAttachments!, type: 'completion'})}
+                      className={`font-medium ${isDark ? 'text-green-400 hover:text-green-300' : 'text-green-600 hover:text-green-700'}`}
+                    >
+                      Click Here ({task.completionAttachments.length})
+                    </button>
                   </div>
                 )}
               </div>
@@ -525,7 +561,7 @@ const MasterTasks: React.FC = () => {
                 Assigned To
               </th>
               <th className={`px-6 py-4 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>
-                Attachments
+                Task Attachments
               </th>
               <th className={`px-6 py-4 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>
                 <button
@@ -538,6 +574,9 @@ const MasterTasks: React.FC = () => {
               </th>
               <th className={`px-6 py-4 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>
                 Completed Date
+              </th>
+              <th className={`px-6 py-4 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>
+                Completion Files
               </th>
               {shouldShowActionsColumn() && (
                 <th className={`px-6 py-4 text-left text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>
@@ -614,7 +653,7 @@ const MasterTasks: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     {task.attachments && task.attachments.length > 0 ? (
                       <button
-                        onClick={() => setShowAttachmentsModal(task.attachments)}
+                        onClick={() => setShowAttachmentsModal({attachments: task.attachments, type: 'task'})}
                         className={`font-medium ${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'}`}
                       >
                         Click Here ({task.attachments.length})
@@ -636,9 +675,30 @@ const MasterTasks: React.FC = () => {
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-900'}`}>
+                    <div className={`text-sm flex items-center ${isDark ? 'text-gray-300' : 'text-gray-900'}`}>
                       {task.completedAt ? new Date(task.completedAt).toLocaleDateString() : ''}
+                      {task.completionRemarks && task.completedAt && (
+                        <button
+                          onClick={() => setShowRemarksModal(task)}
+                          className={`ml-2 ${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'}`}
+                          title="View completion remarks"
+                        >
+                          <Info size={14} />
+                        </button>
+                      )}
                     </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    {task.completionAttachments && task.completionAttachments.length > 0 ? (
+                      <button
+                        onClick={() => setShowAttachmentsModal({attachments: task.completionAttachments!, type: 'completion'})}
+                        className={`font-medium ${isDark ? 'text-green-400 hover:text-green-300' : 'text-green-600 hover:text-green-700'}`}
+                      >
+                        Click Here ({task.completionAttachments.length})
+                      </button>
+                    ) : (
+                      <span className={`${isDark ? 'text-gray-500' : 'text-gray-400'}`}>No Files</span>
+                    )}
                   </td>
                   {shouldShowActionsColumn() && (
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -1096,88 +1156,130 @@ const MasterTasks: React.FC = () => {
         </div>
       )}
 
-      {/* Attachments Modal */}
-      {showAttachmentsModal && (
+      {/* Completion Remarks Modal */}
+      {showRemarksModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-[--color-surface] rounded-xl max-w-xl w-full shadow-2xl transform transition-all">
+          <div className="bg-[--color-surface] rounded-xl max-w-lg w-full shadow-2xl transform transition-all">
             <div className="p-6">
               <h3 className="text-lg font-semibold mb-4 flex items-center text-[--color-text]">
-                <Paperclip size={20} className="mr-2" />
-                Task Attachments
+                <Info size={20} className="mr-2" />
+                Completion Remarks
               </h3>
-              {showAttachmentsModal.length > 0 ? (
-                <ul className="space-y-3 max-h-96 overflow-y-auto pr-2">
-                  {showAttachmentsModal.map((attachment, index) => (
-                    <li key={index} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg bg-[--color-background] text-[--color-text]">
-                      <div className="flex items-center mb-2 sm:mb-0 sm:mr-4">
-                        {isImage(attachment.filename) ? (
-                          <>
-                            <img
-                              src={`http://localhost:5000/uploads/${attachment.filename}`}
-                              alt={attachment.originalName}
-                              className="w-16 h-16 object-cover rounded-md mr-3 border border-[--color-border] cursor-pointer"
-                              onClick={() => setSelectedImagePreview(`http://localhost:5000/uploads/${attachment.filename}`)}
-                            />
-                            <span className="text-sm font-medium break-all">{attachment.originalName}</span>
-                          </>
-                        ) : (
-                          <>
-                            <FileText size={40} className="mr-3 text-[--color-primary]" />
-                            <span className="text-sm font-medium break-all">{attachment.originalName}</span>
-                          </>
-                        )}
-                      </div>
-                      {isImage(attachment.filename) ? (
-                        <div className="flex items-center shrink-0 mt-2 sm:mt-0 space-x-2">
-                          <button
-                            onClick={() => window.open(`http://localhost:5000/uploads/${attachment.filename}`, '_blank')}
-                            className="text-sm font-medium text-[--color-primary] hover:text-[--color-primary-dark] flex items-center"
-                          >
-                            View
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                          </button>
-                          <a
-                            href={`http://localhost:5000/uploads/${attachment.filename}`}
-                            download
-                            className="text-sm font-medium text-[--color-primary] hover:text-[--color-primary-dark] flex items-center"
-                          >
-                            Download
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                            </svg>
-                          </a>
-                        </div>
-                      ) : (
-                        <a
-                          href={`http://localhost:5000/uploads/${attachment.filename}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm font-medium text-[--color-primary] hover:text-[--color-primary-dark] flex items-center shrink-0 mt-2 sm:mt-0"
-                          download
-                        >
-                          Download
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                          </svg>
-                        </a>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-[--color-textSecondary]">No attachments for this task.</p>
-              )}
+              <div className="bg-[--color-background] rounded-lg p-4 border border-[--color-border]">
+                <p className="text-[--color-text] leading-relaxed">
+                  {showRemarksModal.completionRemarks}
+                </p>
+              </div>
               <div className="mt-6 flex justify-end">
                 <button
-                  onClick={() => setShowAttachmentsModal(null)}
+                  onClick={() => setShowRemarksModal(null)}
                   className="py-2 px-4 rounded-lg font-medium transition-colors hover:bg-[--color-background] bg-[--color-surface] border border-[--color-border] text-[--color-text]"
                 >
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Enhanced Attachments Modal */}
+      {showAttachmentsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-[--color-surface] rounded-xl max-w-4xl w-full max-h-[90vh] shadow-2xl transform transition-all overflow-hidden">
+            <div className="p-6 border-b border-[--color-border]">
+              <h3 className="text-lg font-semibold flex items-center text-[--color-text]">
+                <Paperclip size={20} className="mr-2" />
+                {showAttachmentsModal.type === 'completion' ? 'Completion Attachments' : 'Task Attachments'}
+              </h3>
+            </div>
+            <div className="p-6 max-h-[70vh] overflow-y-auto">
+              {showAttachmentsModal.attachments.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {showAttachmentsModal.attachments.map((attachment, index) => (
+                    <div key={index} className="border border-[--color-border] rounded-lg p-4 bg-[--color-background] hover:shadow-md transition-shadow">
+                      <div className="flex flex-col h-full">
+                        {/* File preview */}
+                        <div className="flex-1 mb-3">
+                          {isImage(attachment.filename) ? (
+                            <div className="relative group">
+                              <img
+                                src={`http://localhost:5000/uploads/${attachment.filename}`}
+                                alt={attachment.originalName}
+                                className="w-full h-32 object-cover rounded-md border border-[--color-border] cursor-pointer"
+                                onClick={() => setSelectedImagePreview(`http://localhost:5000/uploads/${attachment.filename}`)}
+                              />
+                              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 rounded-md flex items-center justify-center">
+                                <ExternalLink size={24} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="w-full h-32 bg-[--color-surface] border border-[--color-border] rounded-md flex items-center justify-center">
+                              <FileText size={48} className="text-[--color-primary]" />
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* File info */}
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-medium text-[--color-text] truncate" title={attachment.originalName}>
+                            {attachment.originalName}
+                          </h4>
+                          <div className="text-xs text-[--color-textSecondary] space-y-1">
+                            <div>Size: {formatFileSize(attachment.size)}</div>
+                            <div>Uploaded: {new Date(attachment.uploadedAt).toLocaleDateString()}</div>
+                          </div>
+                        </div>
+                        
+                        {/* Action buttons */}
+                        <div className="flex gap-2 mt-3">
+                          {isImage(attachment.filename) ? (
+                            <>
+                              <button
+                                onClick={() => window.open(`http://localhost:5000/uploads/${attachment.filename}`, '_blank')}
+                                className="flex-1 px-3 py-2 text-xs font-medium bg-[--color-primary] text-white rounded-lg hover:bg-[--color-primary] transition-colors flex items-center justify-center"
+                              >
+                                <ExternalLink size={14} className="mr-1" />
+                                View
+                              </button>
+                              <a
+                                href={`http://localhost:5000/uploads/${attachment.filename}`}
+                                download
+                                className="flex-1 px-3 py-2 text-xs font-medium bg-[--color-success] text-white rounded-lg hover:bg-[--color-success] transition-colors flex items-center justify-center"
+                              >
+                                <Download size={14} className="mr-1" />
+                                Download
+                              </a>
+                            </>
+                          ) : (
+                            <a
+                              href={`http://localhost:5000/uploads/${attachment.filename}`}
+                              download
+                              className="w-full px-3 py-2 text-xs font-medium bg-[--color-primary] text-white rounded-lg hover:bg-[--color-primary] transition-colors flex items-center justify-center"
+                            >
+                              <Download size={14} className="mr-1" />
+                              Download
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Paperclip size={48} className="mx-auto text-[--color-textSecondary] mb-4" />
+                  <p className="text-sm text-[--color-textSecondary]">No attachments found.</p>
+                </div>
+              )}
+            </div>
+            <div className="p-6 border-t border-[--color-border] flex justify-end">
+              <button
+                onClick={() => setShowAttachmentsModal(null)}
+                className="py-2 px-4 rounded-lg font-medium transition-colors hover:bg-[--color-background] bg-[--color-surface] border border-[--color-border] text-[--color-text]"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

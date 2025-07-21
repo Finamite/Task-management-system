@@ -4,6 +4,8 @@ import { CheckSquare, Clock, RefreshCcw, Search, Users, Calendar, ArrowUpDown, A
 import axios from 'axios';
 import ViewToggle from '../components/ViewToggle';
 import PriorityBadge from '../components/PriorityBadge';
+import TaskCompletionModal from '../components/TaskCompletionModal';
+import { useTaskSettings } from '../hooks/useTaskSettings';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface Attachment {
@@ -74,6 +76,7 @@ const getInitialViewPreference = (): 'table' | 'card' => {
 const PendingTasks: React.FC = () => {
   const { user } = useAuth();
   const { theme } = useTheme();
+  const { settings: taskSettings, loading: settingsLoading } = useTaskSettings();
   const isMobile = useIsMobile();
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -92,7 +95,6 @@ const PendingTasks: React.FC = () => {
   });
   const [showCompleteModal, setShowCompleteModal] = useState<string | null>(null);
   const [showReviseModal, setShowReviseModal] = useState<string | null>(null);
-  const [completionRemarks, setCompletionRemarks] = useState('');
   const [revisionDate, setRevisionDate] = useState('');
   const [revisionRemarks, setRevisionRemarks] = useState('');
   const [showFullDescription, setShowFullDescription] = useState<{ [key: string]: boolean }>({});
@@ -218,19 +220,6 @@ const PendingTasks: React.FC = () => {
     setTasks(filteredTasks);
   };
 
-  const handleCompleteTask = async (taskId: string) => {
-    try {
-      await axios.post(`http://localhost:5000/api/tasks/${taskId}/complete`, {
-        completionRemarks
-      });
-      setShowCompleteModal(null);
-      setCompletionRemarks('');
-      fetchTasks();
-    } catch (error) {
-      console.error('Error completing task:', error);
-    }
-  };
-
   const handleReviseTask = async (taskId: string) => {
     try {
       await axios.post(`http://localhost:5000/api/tasks/${taskId}/revise`, {
@@ -346,6 +335,15 @@ const PendingTasks: React.FC = () => {
   const handleItemsPerPageChange = (newItemsPerPage: number) => {
     setItemsPerPage(newItemsPerPage);
     setCurrentPage(1);
+  };
+
+  const handleTaskCompletion = () => {
+    setShowCompleteModal(null);
+    fetchTasks();
+  };
+
+  const getTaskToComplete = () => {
+    return allTasks.find(task => task._id === showCompleteModal);
   };
 
   // Enhanced Pagination Component
@@ -713,7 +711,7 @@ const PendingTasks: React.FC = () => {
     </div>
   );
 
-  if (loading) {
+  if (loading || settingsLoading) {
     return (
       <div className="flex items-center justify-center h-64 text-[--color-textSecondary]">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[--color-primary]"></div>
@@ -721,6 +719,8 @@ const PendingTasks: React.FC = () => {
       </div>
     );
   }
+
+  const completingTask = getTaskToComplete();
 
   return (
     <div className="min-h-screen bg-[var(--color-background)] p-4 space-y-3">
@@ -884,48 +884,18 @@ const PendingTasks: React.FC = () => {
         </>
       )}
 
-      {/* Complete Task Modal */}
-      {showCompleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="rounded-xl max-w-md w-full shadow-2xl transform transition-all bg-[--color-surface]">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold mb-4 flex items-center text-[--color-text]">
-                <CheckSquare size={20} className="text-[--color-success] mr-2" />
-                Complete Task
-              </h3>
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-2 text-[--color-textSecondary]">
-                  Completion Remarks
-                </label>
-                <textarea
-                  value={completionRemarks}
-                  onChange={(e) => setCompletionRemarks(e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-[--color-border] rounded-lg focus:ring-2 focus:ring-[--color-primary] focus:border-[--color-primary] transition-colors bg-[--color-background] text-[--color-text]"
-                  placeholder="Add completion notes..."
-                />
-              </div>
-              <div className="flex space-x-3">
-                 <button
-                  onClick={() => handleCompleteTask(showCompleteModal)}
-                  className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors hover:bg-[var(--color-background)]`}
-                  style={{ background: 'linear-gradient(to right, var(--color-success), var(--color-success-dark))' }}
-                >
-                  Complete Task
-                </button>
-                <button
-                  onClick={() => {
-                    setShowCompleteModal(null);
-                    setCompletionRemarks('');
-                  }}
-                  className="flex-1 py-2 px-4 rounded-lg font-medium transition-colors hover:bg-[--color-background] bg-[--color-surface] border border-[--color-border] text-[--color-text]"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* Task Completion Modal */}
+      {showCompleteModal && completingTask && (
+        <TaskCompletionModal
+          taskId={showCompleteModal}
+          taskTitle={completingTask.title}
+          isRecurring={false}
+          allowAttachments={taskSettings.pendingTasks.allowAttachments}
+          mandatoryAttachments={taskSettings.pendingTasks.mandatoryAttachments}
+          mandatoryRemarks={taskSettings.pendingTasks.mandatoryRemarks}
+          onClose={() => setShowCompleteModal(null)}
+          onComplete={handleTaskCompletion}
+        />
       )}
 
       {/* Revise Task Modal */}

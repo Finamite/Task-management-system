@@ -553,6 +553,128 @@ router.get('/analytics', async (req, res) => {
   }
 });
 
+// Get individual team member trend data
+router.get('/member-trend', async (req, res) => {
+  try {
+    const { memberUsername, isAdmin, startDate, endDate } = req.query;
+
+    if (isAdmin !== 'true') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    if (!memberUsername) {
+      return res.status(400).json({ message: 'Member username is required' });
+    }
+
+    // Find the user by username
+    const user = await User.findOne({ username: memberUsername, isActive: true }).select('_id username');
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const baseQuery = { 
+      isActive: true, 
+      assignedTo: user._id 
+    };
+
+    // Set up date range for trend calculation
+    const currentDate = new Date();
+    const sixMonthsAgo = new Date(currentDate.getFullYear(), currentDate.getMonth() - 5, 1);
+    const endOfCurrentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    // Get completion trend for this specific member
+    const completionTrend = await Task.aggregate([
+      {
+        $match: {
+          ...baseQuery,
+          status: 'completed',
+          completedAt: { 
+            $ne: null,
+            $gte: sixMonthsAgo,
+            $lte: endOfCurrentMonth
+          }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            month: { $month: '$completedAt' },
+            year: { $year: '$completedAt' }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } },
+    ]);
+
+    // Get planned trend for this specific member
+    const plannedTrend = await Task.aggregate([
+      {
+        $match: {
+          ...baseQuery,
+          isActive: true,
+          $or: [
+            { dueDate: { $ne: null } },
+            { nextDueDate: { $ne: null } }
+          ]
+        }
+      },
+      {
+        $addFields: {
+          relevantDate: { $ifNull: ['$nextDueDate', '$dueDate'] }
+        }
+      },
+      {
+        $match: {
+          relevantDate: {
+            $gte: sixMonthsAgo,
+            $lte: endOfCurrentMonth
+          }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            month: { $month: '$relevantDate' },
+            year: { $year: '$relevantDate' }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } }
+    ]);
+
+    // Generate trend data for the last 6 months including current month
+    const trendMonths = [];
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+      const monthName = date.toLocaleString('default', { month: 'short' });
+      const monthNum = date.getMonth() + 1;
+      const yearNum = date.getFullYear();
+
+      const matchingCompletedData = completionTrend.find(item =>
+        item._id.month === monthNum && item._id.year === yearNum
+      );
+
+      const matchingPlannedData = plannedTrend.find(item =>
+        item._id.month === monthNum && item._id.year === yearNum
+      );
+
+      trendMonths.push({
+        month: monthName,
+        completed: matchingCompletedData?.count || 0,
+        planned: matchingPlannedData?.count || 0,
+      });
+    }
+
+    res.json(trendMonths);
+  } catch (error) {
+    console.error('Member trend data error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // Get task counts with trends
 router.get('/counts', async (req, res) => {
   try {
