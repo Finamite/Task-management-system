@@ -202,7 +202,7 @@ const PendingRecurringTasks: React.FC = () => {
     fiveDaysFromNow.setDate(fiveDaysFromNow.getDate() + 5);
     return filteredTasks.filter(task => {
       // Exclude daily tasks and include tasks overdue or due within the next 5 days
-      return task.taskType !== 'daily' && ((new Date(task.dueDate) <= fiveDaysFromNow && new Date(task.dueDate) >= today) || isOverdue(task.dueDate));
+      return  task.taskType === 'weekly' || task.taskType === 'monthly'|| task.taskType === 'quarterly' || task.taskType === 'yearly' && ((new Date(task.dueDate) <= fiveDaysFromNow && new Date(task.dueDate) >= today) || isOverdue(task.dueDate));
     });
   };
   

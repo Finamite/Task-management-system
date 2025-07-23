@@ -1064,9 +1064,9 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Enhanced Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-10 gap-8">
         {/* Task Status Distribution - Enhanced Pie Chart */}
-        <ThemeCard className="p-8" variant="glass">
+        <ThemeCard className="p-8 xl:col-span-4" variant="glass">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
               <div className="p-3 rounded-2xl text-white" style={{ background: `linear-gradient(135deg, var(--color-primary), var(--color-secondary))` }}>
@@ -1118,7 +1118,7 @@ const Dashboard: React.FC = () => {
         </ThemeCard>
 
         {/* Task Type Breakdown - Enhanced Bar Chart */}
-        <ThemeCard className="p-8" variant="glass">
+        <ThemeCard className="p-8 xl:col-span-6" variant="glass">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
               <div className="p-3 rounded-2xl text-white" style={{ background: `linear-gradient(135deg, var(--color-success), var(--color-accent))` }}>
