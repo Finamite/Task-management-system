@@ -175,13 +175,17 @@ router.get('/analytics', async (req, res) => {
         const monthlyPending = await Task.countDocuments({ ...userBaseQuery, taskType: 'monthly', status: 'pending' });
         const monthlyCompleted = await Task.countDocuments({ ...userBaseQuery, taskType: 'monthly', status: 'completed' });
 
+        const quarterlyTasks = await Task.countDocuments({ ...userBaseQuery, taskType: 'quarterly' });
+        const quarterlyPending = await Task.countDocuments({ ...userBaseQuery, taskType: 'quarterly', status: 'pending' });
+        const quarterlyCompleted = await Task.countDocuments({ ...userBaseQuery, taskType: 'quarterly', status: 'completed' });
+
         const yearlyTasks = await Task.countDocuments({ ...userBaseQuery, taskType: 'yearly' });
         const yearlyPending = await Task.countDocuments({ ...userBaseQuery, taskType: 'yearly', status: 'pending' });
         const yearlyCompleted = await Task.countDocuments({ ...userBaseQuery, taskType: 'yearly', status: 'completed' });
 
-        const recurringTasks = dailyTasks + weeklyTasks + monthlyTasks + yearlyTasks;
-        const recurringPending = dailyPending + weeklyPending + monthlyPending + yearlyPending;
-        const recurringCompleted = dailyCompleted + weeklyCompleted + monthlyCompleted + yearlyCompleted;
+        const recurringTasks = dailyTasks + weeklyTasks + monthlyTasks + quarterlyTasks + yearlyTasks;
+        const recurringPending = dailyPending + weeklyPending + monthlyPending + quarterlyPending + yearlyPending;
+        const recurringCompleted = dailyCompleted + weeklyCompleted + monthlyCompleted + quarterlyCompleted + yearlyCompleted;
 
         // Calculate on-time completion rate
         let onTimeQuery = {
@@ -195,7 +199,6 @@ router.get('/analytics', async (req, res) => {
           }
         };
 
-
         const onTimeCompletedTasks = await Task.countDocuments(onTimeQuery);
         const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
         const onTimeRate = completedTasksForRate > 0 ? (onTimeCompletedTasks / completedTasksForRate) * 100 : 0;
@@ -203,7 +206,7 @@ router.get('/analytics', async (req, res) => {
         // Calculate on-time for Recurring tasks
         let recurringOnTimeQuery = {
           ...onTimeQuery,
-          taskType: { $in: ['daily', 'weekly', 'monthly', 'yearly'] }
+          taskType: { $in: ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'] }
         };
         const onTimeCompletedRecurringTasks = await Task.countDocuments(recurringOnTimeQuery);
 
@@ -225,6 +228,9 @@ router.get('/analytics', async (req, res) => {
             monthlyTasks,
             monthlyPending,
             monthlyCompleted,
+            quarterlyTasks,
+            quarterlyPending,
+            quarterlyCompleted,
             yearlyTasks,
             yearlyPending,
             yearlyCompleted,
@@ -297,13 +303,17 @@ router.get('/analytics', async (req, res) => {
           const monthlyPending = await Task.countDocuments({ ...userBaseQuery, taskType: 'monthly', status: 'pending' });
           const monthlyCompleted = await Task.countDocuments({ ...userBaseQuery, taskType: 'monthly', status: 'completed' });
 
+          const quarterlyTasks = await Task.countDocuments({ ...userBaseQuery, taskType: 'quarterly' });
+          const quarterlyPending = await Task.countDocuments({ ...userBaseQuery, taskType: 'quarterly', status: 'pending' });
+          const quarterlyCompleted = await Task.countDocuments({ ...userBaseQuery, taskType: 'quarterly', status: 'completed' });
+
           const yearlyTasks = await Task.countDocuments({ ...userBaseQuery, taskType: 'yearly' });
           const yearlyPending = await Task.countDocuments({ ...userBaseQuery, taskType: 'yearly', status: 'pending' });
           const yearlyCompleted = await Task.countDocuments({ ...userBaseQuery, taskType: 'yearly', status: 'completed' });
 
-          const recurringTasks = dailyTasks + weeklyTasks + monthlyTasks + yearlyTasks;
-          const recurringPending = dailyPending + weeklyPending + monthlyPending + yearlyPending;
-          const recurringCompleted = dailyCompleted + weeklyCompleted + monthlyCompleted + yearlyCompleted;
+          const recurringTasks = dailyTasks + weeklyTasks + monthlyTasks + quarterlyTasks + yearlyTasks;
+          const recurringPending = dailyPending + weeklyPending + monthlyPending + quarterlyPending + yearlyPending;
+          const recurringCompleted = dailyCompleted + weeklyCompleted + monthlyCompleted + quarterlyCompleted + yearlyCompleted;
 
           // Calculate on-time completion rate
           let onTimeQuery = {
@@ -317,7 +327,6 @@ router.get('/analytics', async (req, res) => {
             }
           };
 
-
           const onTimeCompletedTasks = await Task.countDocuments(onTimeQuery);
           const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
           const onTimeRate = completedTasksForRate > 0 ? (onTimeCompletedTasks / completedTasksForRate) * 100 : 0;
@@ -325,7 +334,7 @@ router.get('/analytics', async (req, res) => {
           // Calculate on-time for Recurring tasks
           let recurringOnTimeQuery = {
             ...onTimeQuery,
-            taskType: { $in: ['daily', 'weekly', 'monthly', 'yearly'] }
+            taskType: { $in: ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'] }
           };
           const onTimeCompletedRecurringTasks = await Task.countDocuments(recurringOnTimeQuery);
 
@@ -346,6 +355,9 @@ router.get('/analytics', async (req, res) => {
             monthlyTasks,
             monthlyPending,
             monthlyCompleted,
+            quarterlyTasks,
+            quarterlyPending,
+            quarterlyCompleted,
             yearlyTasks,
             yearlyPending,
             yearlyCompleted,
@@ -483,13 +495,13 @@ router.get('/analytics', async (req, res) => {
 
     let recurringOnTimeQueryOverall = {
       ...onTimeQueryOverall,
-      taskType: { $in: ['daily', 'weekly', 'monthly', 'yearly'] }
+      taskType: { $in: ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'] }
     };
     const onTimeCompletedRecurringOverall = await Task.countDocuments(recurringOnTimeQueryOverall);
 
     const completedRecurringTasksOverallForRate = await Task.countDocuments({
       ...baseQuery,
-      taskType: { $in: ['daily', 'weekly', 'monthly', 'yearly'] },
+      taskType: { $in: ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'] },
       status: 'completed',
       completedAt: { $ne: null },
       ...(startDate && endDate ? dateRangeQueryForStats : {})
@@ -784,7 +796,7 @@ router.get('/counts', async (req, res) => {
         };
       };
 
-      // Get all-time data (no date filters)
+      // Get all-time data (no date filters) - including quarterly
       const [
         totalTasks,
         pendingTasks,
@@ -802,6 +814,9 @@ router.get('/counts', async (req, res) => {
         monthlyTasks,
         monthlyPending,
         monthlyCompleted,
+        quarterlyTasks,
+        quarterlyPending,
+        quarterlyCompleted,
         yearlyTasks,
         yearlyPending,
         yearlyCompleted
@@ -827,14 +842,18 @@ router.get('/counts', async (req, res) => {
         Task.countDocuments({ ...baseQuery, taskType: 'monthly', status: 'pending' }),
         Task.countDocuments({ ...baseQuery, taskType: 'monthly', status: 'completed' }),
 
+        Task.countDocuments({ ...baseQuery, taskType: 'quarterly' }),
+        Task.countDocuments({ ...baseQuery, taskType: 'quarterly', status: 'pending' }),
+        Task.countDocuments({ ...baseQuery, taskType: 'quarterly', status: 'completed' }),
+
         Task.countDocuments({ ...baseQuery, taskType: 'yearly' }),
         Task.countDocuments({ ...baseQuery, taskType: 'yearly', status: 'pending' }),
         Task.countDocuments({ ...baseQuery, taskType: 'yearly', status: 'completed' })
       ]);
 
-      const recurringTasks = dailyTasks + weeklyTasks + monthlyTasks + yearlyTasks;
-      const recurringPending = dailyPending + weeklyPending + monthlyPending + yearlyPending;
-      const recurringCompleted = dailyCompleted + weeklyCompleted + monthlyCompleted + yearlyCompleted;
+      const recurringTasks = dailyTasks + weeklyTasks + monthlyTasks + quarterlyTasks + yearlyTasks;
+      const recurringPending = dailyPending + weeklyPending + monthlyPending + quarterlyPending + yearlyPending;
+      const recurringCompleted = dailyCompleted + weeklyCompleted + monthlyCompleted + quarterlyCompleted + yearlyCompleted;
 
       return res.json({
         totalTasks,
@@ -856,6 +875,9 @@ router.get('/counts', async (req, res) => {
         monthlyTasks,
         monthlyPending,
         monthlyCompleted,
+        quarterlyTasks,
+        quarterlyPending,
+        quarterlyCompleted,
         yearlyTasks,
         yearlyPending,
         yearlyCompleted,
@@ -868,7 +890,7 @@ router.get('/counts', async (req, res) => {
       });
     }
 
-    // Get current period data
+    // Get current period data - including quarterly
     const [
       totalTasks,
       pendingTasks,
@@ -886,6 +908,9 @@ router.get('/counts', async (req, res) => {
       monthlyTasks,
       monthlyPending,
       monthlyCompleted,
+      quarterlyTasks,
+      quarterlyPending,
+      quarterlyCompleted,
       yearlyTasks,
       yearlyPending,
       yearlyCompleted
@@ -910,6 +935,10 @@ router.get('/counts', async (req, res) => {
       Task.countDocuments({ ...baseQuery, ...dateRangeQuery, taskType: 'monthly' }),
       Task.countDocuments({ ...baseQuery, ...dateRangeQuery, taskType: 'monthly', status: 'pending' }),
       Task.countDocuments({ ...baseQuery, ...dateRangeQuery, taskType: 'monthly', status: 'completed' }),
+
+      Task.countDocuments({ ...baseQuery, ...dateRangeQuery, taskType: 'quarterly' }),
+      Task.countDocuments({ ...baseQuery, ...dateRangeQuery, taskType: 'quarterly', status: 'pending' }),
+      Task.countDocuments({ ...baseQuery, ...dateRangeQuery, taskType: 'quarterly', status: 'completed' }),
 
       Task.countDocuments({ ...baseQuery, ...dateRangeQuery, taskType: 'yearly' }),
       Task.countDocuments({ ...baseQuery, ...dateRangeQuery, taskType: 'yearly', status: 'pending' }),
@@ -940,9 +969,9 @@ router.get('/counts', async (req, res) => {
       };
     };
 
-    const recurringTasks = dailyTasks + weeklyTasks + monthlyTasks + yearlyTasks;
-    const recurringPending = dailyPending + weeklyPending + monthlyPending + yearlyPending;
-    const recurringCompleted = dailyCompleted + weeklyCompleted + monthlyCompleted + yearlyCompleted;
+    const recurringTasks = dailyTasks + weeklyTasks + monthlyTasks + quarterlyTasks + yearlyTasks;
+    const recurringPending = dailyPending + weeklyPending + monthlyPending + quarterlyPending + yearlyPending;
+    const recurringCompleted = dailyCompleted + weeklyCompleted + monthlyCompleted + quarterlyCompleted + yearlyCompleted;
 
     res.json({
       totalTasks,
@@ -964,6 +993,9 @@ router.get('/counts', async (req, res) => {
       monthlyTasks,
       monthlyPending,
       monthlyCompleted,
+      quarterlyTasks,
+      quarterlyPending,
+      quarterlyCompleted,
       yearlyTasks,
       yearlyPending,
       yearlyCompleted,

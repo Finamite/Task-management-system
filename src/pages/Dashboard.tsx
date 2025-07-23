@@ -10,14 +10,14 @@ import {
   ChevronDown, Award, Star, Zap, ArrowUp, ArrowDown, BarChart3,
   PieChart as PieChartIcon, Trophy,
   Clock4, CalendarDays, RefreshCw, UserCheck, TrendingUpIcon,
-  PercentIcon, ClockIcon, User, Users, Filter
+  PercentIcon, ClockIcon, User, Users, Filter, RotateCcw
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
 import { format, startOfMonth, endOfMonth, subMonths, addMonths, isThisMonth, isSameMonth, isSameYear } from 'date-fns';
 import { availableThemes } from '../contexts/ThemeContext';
 
-// --- Interfaces (kept as is, no changes needed based on requirements) ---
+// --- Interfaces (updated to include quarterly) ---
 interface DashboardData {
   statusStats: Array<{ _id: string; count: number }>;
   typeStats: Array<{ _id: string; count: number }>;
@@ -41,6 +41,9 @@ interface DashboardData {
     monthlyTasks: number;
     monthlyPending: number;
     monthlyCompleted: number;
+    quarterlyTasks: number;
+    quarterlyPending: number;
+    quarterlyCompleted: number;
     yearlyTasks: number;
     yearlyPending: number;
     yearlyCompleted: number;
@@ -85,6 +88,9 @@ interface DashboardData {
     monthlyTasks: number;
     monthlyPending: number;
     monthlyCompleted: number;
+    quarterlyTasks: number;
+    quarterlyPending: number;
+    quarterlyCompleted: number;
     yearlyTasks: number;
     yearlyPending: number;
     yearlyCompleted: number;
@@ -118,6 +124,9 @@ interface TaskCounts {
   monthlyTasks: number;
   monthlyPending: number;
   monthlyCompleted: number;
+  quarterlyTasks: number;
+  quarterlyPending: number;
+  quarterlyCompleted: number;
   yearlyTasks: number;
   yearlyPending: number;
   yearlyCompleted: number;
@@ -295,7 +304,7 @@ const Dashboard: React.FC = () => {
     </ThemeCard>
   );
 
-  // --- Enhanced User Performance Card Component ---
+  // --- Enhanced User Performance Card Component (Updated to 6 columns) ---
   const UserPerformanceCard = ({ userPerformance }: { userPerformance: DashboardData['userPerformance'] }) => {
     if (!userPerformance) return null;
 
@@ -350,12 +359,15 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Updated to 6 columns grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
           {[
             { label: 'One-time', total: userPerformance.oneTimeTasks, pending: userPerformance.oneTimePending, completed: userPerformance.oneTimeCompleted, icon: <Target size={18} />, color: 'var(--color-primary)' },
             { label: 'Daily', total: userPerformance.dailyTasks, pending: userPerformance.dailyPending, completed: userPerformance.dailyCompleted, icon: <RefreshCw size={18} />, color: 'var(--color-success)' },
             { label: 'Weekly', total: userPerformance.weeklyTasks, pending: userPerformance.weeklyPending, completed: userPerformance.weeklyCompleted, icon: <Calendar size={18} />, color: 'var(--color-warning)' },
             { label: 'Monthly', total: userPerformance.monthlyTasks, pending: userPerformance.monthlyPending, completed: userPerformance.monthlyCompleted, icon: <CalendarDays size={18} />, color: 'var(--color-accent)' },
+            { label: 'Quarterly', total: userPerformance.quarterlyTasks, pending: userPerformance.quarterlyPending, completed: userPerformance.quarterlyCompleted, icon: <RotateCcw size={18} />, color: 'var(--color-info)' },
+            { label: 'Yearly', total: userPerformance.yearlyTasks, pending: userPerformance.yearlyPending, completed: userPerformance.yearlyCompleted, icon: <Star size={18} />, color: 'var(--color-secondary)' },
           ].map((item, index) => (
             <ThemeCard key={index} className="p-5" variant="default" hover={false}>
               <div className="flex items-center mb-3">
@@ -420,7 +432,7 @@ const Dashboard: React.FC = () => {
     );
   };
 
-  // --- TeamMemberCard Component (Updated) ---
+  // --- TeamMemberCard Component (Updated to 6 columns) ---
   const TeamMemberCard = ({ member, rank }: {
     member: DashboardData['teamPerformance'][0];
     rank: number;
@@ -493,43 +505,47 @@ const Dashboard: React.FC = () => {
         </div>
 
         <div className="pt-4 border-t border-[var(--color-border)]">
-          <div className="hidden sm:grid sm:grid-cols-4 sm:gap-4">
+          {/* Updated to 6 columns grid */}
+          <div className="hidden sm:grid sm:grid-cols-6 sm:gap-4">
             {[
               { label: 'One-time', total: member.oneTimeTasks, pending: member.oneTimePending, completed: member.oneTimeCompleted, icon: <Target size={14} />, color: 'var(--color-primary)' },
               { label: 'Daily', total: member.dailyTasks, pending: member.dailyPending, completed: member.dailyCompleted, icon: <RefreshCw size={14} />, color: 'var(--color-success)' },
               { label: 'Weekly', total: member.weeklyTasks, pending: member.weeklyPending, completed: member.weeklyCompleted, icon: <Calendar size={14} />, color: 'var(--color-warning)' },
               { label: 'Monthly', total: member.monthlyTasks, pending: member.monthlyPending, completed: member.monthlyCompleted, icon: <CalendarDays size={14} />, color: 'var(--color-accent)' },
+              { label: 'Quarterly', total: member.quarterlyTasks, pending: member.quarterlyPending, completed: member.quarterlyCompleted, icon: <RotateCcw size={14} />, color: 'var(--color-info)' },
+              { label: 'Yearly', total: member.yearlyTasks, pending: member.yearlyPending, completed: member.yearlyCompleted, icon: <Star size={14} />, color: 'var(--color-secondary)' },
             ].map((item, index) => (
               <ThemeCard key={index} className="py-2 px-3" variant="default" hover={false}>
                 <div className="flex items-center mb-1">
                   <div style={{ color: item.color }} className="mr-1">{item.icon}</div>
                   <span className="text-xs font-medium text-[var(--color-textSecondary)]">{item.label} Tasks</span>
                 </div>
-                <div className="flex justify-between items-baseline mb-1">
-                  <span className="text-lg font-bold text-[var(--color-text)]">{item.total}</span>
-                  <span className="text-xs text-[var(--color-textSecondary)]">Total</span>
-                </div>
-                <div className="flex justify-between text-xs text-[var(--color-textSecondary)]">
-                  <div className="flex items-center">
-                    <Clock size={10} className="mr-1" style={{ color: 'var(--color-warning)' }} />
-                    <span>{item.pending} Pending</span>
-                  </div>
-                  <div className="flex items-center">
-                    <CheckCircle size={10} className="mr-1" style={{ color: 'var(--color-success)' }} />
-                    <span>{item.completed} Completed</span>
-                  </div>
-                </div>
+     <div className="flex justify-center items-baseline mb-1">
+  <span className="text-lg font-bold text-[var(--color-text)]">{item.total}</span>
+</div>
+<div className="flex justify-between text-xs font-semibold text-[var(--color-textSecondary)]">
+  <span>
+    Pending <span className="text-orange-500">{item.pending}</span>
+  </span>
+  <span>
+    Complete <span className="text-green-600">{item.completed}</span>
+  </span>
+</div>
+
               </ThemeCard>
             ))}
           </div>
 
+          {/* Mobile view - Updated to show all 6 types in 3x2 grid */}
           <div className="sm:hidden">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {[
                 { label: 'One-time', total: member.oneTimeTasks, pending: member.oneTimePending, completed: member.oneTimeCompleted, icon: <Target size={12} />, color: 'var(--color-primary)' },
                 { label: 'Daily', total: member.dailyTasks, pending: member.dailyPending, completed: member.dailyCompleted, icon: <RefreshCw size={12} />, color: 'var(--color-success)' },
                 { label: 'Weekly', total: member.weeklyTasks, pending: member.weeklyPending, completed: member.weeklyCompleted, icon: <Calendar size={12} />, color: 'var(--color-warning)' },
                 { label: 'Monthly', total: member.monthlyTasks, pending: member.monthlyPending, completed: member.monthlyCompleted, icon: <CalendarDays size={12} />, color: 'var(--color-accent)' },
+                { label: 'Quarterly', total: member.quarterlyTasks, pending: member.quarterlyPending, completed: member.quarterlyCompleted, icon: <RotateCcw size={12} />, color: 'var(--color-info)' },
+                { label: 'Yearly', total: member.yearlyTasks, pending: member.yearlyPending, completed: member.yearlyCompleted, icon: <Star size={12} />, color: 'var(--color-secondary)' },
               ].map((item, index) => (
                 <ThemeCard key={index} className="py-2 px-2" variant="default" hover={false}>
                   <div className="flex items-center justify-center mb-1">
@@ -805,6 +821,7 @@ const Dashboard: React.FC = () => {
 
   const displayData = taskCounts;
 
+  // Updated taskTypeData to include quarterly
   const taskTypeData = [
     {
       name: 'One-time',
@@ -833,6 +850,13 @@ const Dashboard: React.FC = () => {
       pending: displayData?.monthlyPending || 0,
       completed: displayData?.monthlyCompleted || 0,
       color: 'var(--color-accent)'
+    },
+    {
+      name: 'Quarterly',
+      value: displayData?.quarterlyTasks || 0,
+      pending: displayData?.quarterlyPending || 0,
+      completed: displayData?.quarterlyCompleted || 0,
+      color: 'var(--color-info)'
     },
     {
       name: 'Yearly',
@@ -1016,8 +1040,8 @@ const Dashboard: React.FC = () => {
         />
       </div>
 
-      {/* Task Type Distribution - Now includes pending and completed sub-counts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      {/* Task Type Distribution - Now includes quarterly and updated to 6 columns */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
         {taskTypeData.map((type, index) => (
           <MetricCard
             key={type.name}
@@ -1026,6 +1050,7 @@ const Dashboard: React.FC = () => {
               type.name === 'Daily' ? <Zap size={18} /> :
               type.name === 'Weekly' ? <Calendar size={18} /> :
               type.name === 'Monthly' ? <Timer size={18} /> :
+              type.name === 'Quarterly' ? <RotateCcw size={18} /> :
               <Star size={18} />
             }
             title={type.name}
