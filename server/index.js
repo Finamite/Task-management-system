@@ -97,13 +97,17 @@ mongoose.connect(process.env.MONGO_URI)
     console.log('Connected to MongoDB');
     
     // Check if admin user exists, if not create one
-    const User = mongoose.model('User');
+    // The User model is imported implicitly through the routes that use it,
+    // but we can also explicitly import it here if needed for clarity.
+    // For this case, mongoose.model('User') works because the model is defined elsewhere.
+    const User = mongoose.model('User'); 
     User.findOne({ email: 'admin@taskmanagement.com' })
       .then(existingAdmin => {
         if (!existingAdmin) {
           const admin = new User({
-            username: 'admin',
+            username: 'Admin', // Changed username to 'Admin' as requested
             email: 'admin@taskmanagement.com',
+            password: '123456', // Set default password as requested
             role: 'admin',
             permissions: {
               canViewTasks: true,
@@ -116,9 +120,16 @@ mongoose.connect(process.env.MONGO_URI)
             }
           });
           admin.save().then(() => {
-            console.log('Admin user created');
+            console.log('Admin user created with default credentials');
+          }).catch(err => {
+            console.error('Error creating admin user:', err);
           });
+        } else {
+          console.log('Admin user already exists.');
         }
+      })
+      .catch(err => {
+        console.error('Error checking for admin user:', err);
       });
     
     app.listen(PORT, () => {
