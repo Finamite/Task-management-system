@@ -14,58 +14,36 @@ import {
   ChevronRight
 } from 'lucide-react';
 
-// Finamite Logo Component
+// Clean and Professional Finamite Logo Component
 const FinamiteLogo = ({ isCollapsed }) => (
   <div className="flex items-center">
     <div className="relative mr-3">
-      {/* Outer container with gradient and glow */}
+      {/* Simple, clean icon container */}
       <div 
-        className="w-8 h-6 rounded-xl flex items-center justify-center relative shadow-lg"
+        className="w-8 h-9 rounded-lg flex items-center justify-center relative"
         style={{
-          background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 50%, var(--color-accent) 100%)',
-          boxShadow: '0 4px 20px rgba(0, 112, 243, 0.15)'
+          backgroundColor: '#2563eb',
+          boxShadow: '0 2px 8px rgba(37, 99, 235, 0.25)'
         }}
       >
-        {/* Stylized 'F' letter */}
-        <div className="relative">
-          <div 
-            className="text-white font-bold text-lg leading-none"
-            style={{
-              fontFamily: 'system-ui, -apple-system, sans-serif',
-              textShadow: '0 2px 4px rgba(0,0,0,0.3)'
-            }}
-          >
-            F
-          </div>
-          {/* Decorative accent line */}
-          <div 
-            className="absolute -right-1 top-1 w-2 h-0.5 bg-white opacity-80 rounded-full"
-            style={{
-              transform: 'rotate(-15deg)'
-            }}
-          />
-          {/* Small dot accent */}
-          <div className="absolute -top-0.5 -right-0.5 w-1 h-1 bg-yellow-300 rounded-full opacity-90" />
-        </div>
-        {/* Background pattern for depth */}
+        {/* Clean 'F' letter */}
         <div 
-          className="absolute inset-0 rounded-xl opacity-20"
-          style={{
-            background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.3) 0%, transparent 50%)'
+          className="text-white font-bold text-xl leading-none select-none"
+          style={{ 
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            fontWeight: '700'
           }}
-        />
+        >
+          F
+        </div>
       </div>
     </div>
     {!isCollapsed && (
       <span 
-        className="text-xl font-bold tracking-wide transition-opacity duration-200"
+        className="text-xl font-bold tracking-tight transition-opacity duration-200"
         style={{ 
-          color: 'var(--color-primary)',
-          fontFamily: 'system-ui, -apple-system, sans-serif',
-         background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          backgroundClip: 'text'
+          color: '#277ef8ff',
+          fontFamily: 'system-ui, -apple-system, sans-serif'
         }}
       >
         Finamite

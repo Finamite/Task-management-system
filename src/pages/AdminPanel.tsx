@@ -70,6 +70,13 @@ const AdminPanel: React.FC = () => {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [settingsMessage, setSettingsMessage] = useState({ type: '', text: '' });
 
+  // Define allowed permissions for each role
+  const rolePermissions = {
+    employee: ['canViewTasks', 'canAssignTasks'],
+    manager: ['canViewTasks', 'canViewAllTeamTasks', 'canAssignTasks', 'canDeleteTasks', 'canEditTasks', 'canEditRecurringTaskSchedules'],
+    admin: ['canViewTasks', 'canViewAllTeamTasks', 'canAssignTasks', 'canDeleteTasks', 'canEditTasks', 'canManageUsers', 'canEditRecurringTaskSchedules']
+  };
+
   useEffect(() => {
     fetchUsers();
     fetchTaskSettings();
@@ -136,10 +143,37 @@ const AdminPanel: React.FC = () => {
     setExpandedCards(newExpanded);
   };
 
+  const isPermissionAllowedForRole = (permissionKey: string, role: string) => {
+    const allowedPermissions = rolePermissions[role as keyof typeof rolePermissions] || [];
+    return allowedPermissions.includes(permissionKey);
+  };
+
+  const updatePermissionsForRole = (role: string, currentPermissions: any) => {
+    const allowedPermissions = rolePermissions[role as keyof typeof rolePermissions] || [];
+    const updatedPermissions = { ...currentPermissions };
+    
+    // Disable permissions not allowed for the role
+    Object.keys(updatedPermissions).forEach(permission => {
+      if (!allowedPermissions.includes(permission)) {
+        updatedPermissions[permission] = false;
+      }
+    });
+    
+    return updatedPermissions;
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     
-    if (name.startsWith('permissions.')) {
+    if (name === 'role') {
+      // When role changes, update permissions accordingly
+      const updatedPermissions = updatePermissionsForRole(value, formData.permissions);
+      setFormData(prev => ({
+        ...prev,
+        role: value,
+        permissions: updatedPermissions
+      }));
+    } else if (name.startsWith('permissions.')) {
       const permissionKey = name.split('.')[1];
       setFormData(prev => ({
         ...prev,
@@ -845,20 +879,34 @@ const AdminPanel: React.FC = () => {
                     Permissions
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {Object.entries(formData.permissions).map(([key, value]) => (
-                      <label key={key} className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          name={`permissions.${key}`}
-                          checked={value}
-                          onChange={handleInputChange}
-                          className="rounded"
-                        />
-                        <span className="text-sm" style={{ color: 'var(--color-text)' }}>
-                          {getPermissionDisplayName(key)}
-                        </span>
-                      </label>
-                    ))}
+                    {Object.entries(formData.permissions).map(([key, value]) => {
+                      const isAllowed = isPermissionAllowedForRole(key, formData.role);
+                      const isDisabled = !isAllowed;
+                      
+                      return (
+                        <label 
+                          key={key} 
+                          className={`flex items-center space-x-2 ${isDisabled ? 'opacity-50' : ''}`}
+                        >
+                          <input
+                            type="checkbox"
+                            name={`permissions.${key}`}
+                            checked={value && isAllowed}
+                            onChange={handleInputChange}
+                            disabled={isDisabled}
+                            className="rounded"
+                          />
+                          <span className="text-sm" style={{ color: 'var(--color-text)' }}>
+                            {getPermissionDisplayName(key)}
+                          </span>
+                          {isDisabled && (
+                            <span className="text-xs text-gray-400 ml-2">
+                              (Not available for {formData.role})
+                            </span>
+                          )}
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -981,20 +1029,34 @@ const AdminPanel: React.FC = () => {
                     Permissions
                   </label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {Object.entries(formData.permissions).map(([key, value]) => (
-                      <label key={key} className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          name={`permissions.${key}`}
-                          checked={value}
-                          onChange={handleInputChange}
-                          className="rounded"
-                        />
-                        <span className="text-sm" style={{ color: 'var(--color-text)' }}>
-                          {getPermissionDisplayName(key)}
-                        </span>
-                      </label>
-                    ))}
+                    {Object.entries(formData.permissions).map(([key, value]) => {
+                      const isAllowed = isPermissionAllowedForRole(key, formData.role);
+                      const isDisabled = !isAllowed;
+                      
+                      return (
+                        <label 
+                          key={key} 
+                          className={`flex items-center space-x-2 ${isDisabled ? 'opacity-50' : ''}`}
+                        >
+                          <input
+                            type="checkbox"
+                            name={`permissions.${key}`}
+                            checked={value && isAllowed}
+                            onChange={handleInputChange}
+                            disabled={isDisabled}
+                            className="rounded"
+                          />
+                          <span className="text-sm" style={{ color: 'var(--color-text)' }}>
+                            {getPermissionDisplayName(key)}
+                          </span>
+                          {isDisabled && (
+                            <span className="text-xs text-gray-400 ml-2">
+                              (Not available for {formData.role})
+                            </span>
+                          )}
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
 

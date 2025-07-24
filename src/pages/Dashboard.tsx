@@ -635,7 +635,7 @@ const Dashboard: React.FC = () => {
     try {
       const params: any = {
         userId: user?.id,
-        isAdmin: user?.role === 'admin' ? 'true' : 'false',
+        isAdmin: (user?.role === 'admin' || user?.role === 'manager') ? 'true' : 'false',
       };
       if (startDate && endDate) {
         params.startDate = startDate;
@@ -654,7 +654,7 @@ const Dashboard: React.FC = () => {
     try {
       const params: any = {
         userId: user?.id,
-        isAdmin: user?.role === 'admin' ? 'true' : 'false'
+        isAdmin: (user?.role === 'admin' || user?.role === 'manager') ? 'true' : 'false'
       };
       if (startDate && endDate) {
         params.startDate = startDate;
@@ -726,7 +726,7 @@ const Dashboard: React.FC = () => {
   // Load member trend data when selected team member changes
   useEffect(() => {
     const loadMemberTrendData = async () => {
-      if (user?.role === 'admin' && selectedTeamMember && selectedTeamMember !== 'all') {
+      if ((user?.role === 'admin' || user?.role === 'manager') && selectedTeamMember && selectedTeamMember !== 'all') {
         try {
           let memberTrendDataResult = null;
           
@@ -878,7 +878,7 @@ const Dashboard: React.FC = () => {
 
   // Get team members list for the dropdown
   const getTeamMembersList = () => {
-    if (!dashboardData?.teamPerformance || user?.role !== 'admin') return [];
+    if (!dashboardData?.teamPerformance || (user?.role !== 'admin' && user?.role === 'manager')) return [];
     
     return dashboardData.teamPerformance.map(member => ({
       username: member.username,
@@ -914,7 +914,7 @@ const Dashboard: React.FC = () => {
             </h1>
             <p className="text-xs text-[var(--color-textSecondary)]">
               Welcome back, <span className="font-bold text-[var(--color-text)]">{user?.username}</span>!
-              {user?.role !== 'admin' ? ' Here\'s your performance overview' : ' Team performance overview'}
+              {(user?.role !== 'admin' && user?.role !== 'manager') ? ' Here\'s your performance overview' : ' Team performance overview'}
             </p>
           </div>
         </div>
@@ -1074,10 +1074,10 @@ const Dashboard: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-xl font-bold text-[var(--color-text)]">
-                  {user?.role === 'admin' ? 'Team Task Status' : 'Your Task Status'}
+                  {(user?.role === 'admin' || user?.role === 'manager') ? 'Team Task Status' : 'Your Task Status'}
                 </h3>
                 <p className="text-xs text-[var(--color-textSecondary)]">
-                  {user?.role === 'admin' ? 'Team distribution' : 'Your current distribution'}
+                  {(user?.role === 'admin' || user?.role === 'manager') ? 'Team distribution' : 'Your current distribution'}
                 </p>
               </div>
             </div>
@@ -1126,10 +1126,10 @@ const Dashboard: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-xl font-bold text-[var(--color-text)]">
-                  {user?.role === 'admin' ? 'Team Task Types' : 'Your Task Types'}
+                  {(user?.role === 'admin' || user?.role === 'manager') ? 'Team Task Types' : 'Your Task Types'}
                 </h3>
                 <p className="text-xs text-[var(--color-textSecondary)]">
-                  {user?.role === 'admin' ? 'Team breakdown by category' : 'Your breakdown by category'}
+                  {(user?.role === 'admin' || user?.role === 'manager') ? 'Team breakdown by category' : 'Your breakdown by category'}
                 </p>
               </div>
             </div>
@@ -1174,14 +1174,14 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Individual User Performance (Only show for non-admin users, moved after charts) */}
-      {user?.role !== 'admin' && dashboardData?.userPerformance && (
+      {(user?.role !== 'admin' && user?.role !== 'manager') && dashboardData?.userPerformance && (
         <UserPerformanceCard userPerformance={dashboardData.userPerformance} />
       )}
 
       {/* Enhanced Completion Trend and Recent Activity - Split 7:3 for non-admin users */}
-      <div className={`grid grid-cols-1 ${user?.role !== 'admin' ? 'xl:grid-cols-10' : ''} gap-8`}>
+      <div className={`grid grid-cols-1 ${(user?.role !== 'admin' && user?.role !== 'manager') ? 'xl:grid-cols-10' : ''} gap-8`}>
         {/* Enhanced Completion Trend with Team Member Selector */}
-        <ThemeCard className={`p-8 ${user?.role !== 'admin' ? 'xl:col-span-7' : ''}`} variant="glass">
+        <ThemeCard className={`p-8 ${(user?.role !== 'admin' && user?.role !== 'manager') ? 'xl:col-span-7' : ''}`} variant="glass">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
             <div className="flex items-center space-x-4">
               <div className="relative">
@@ -1192,17 +1192,17 @@ const Dashboard: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-xl font-bold text-[var(--color-text)] mb-1">
-                  {user?.role === 'admin' ? 'Team Completion Trend' : 'Your Completion Trend'}
+                  {(user?.role === 'admin' || user?.role === 'manager') ? 'Team Completion Trend' : 'Your Completion Trend'}
                 </h3>
                 <p className="text-xs text-[var(--color-textSecondary)]">
-                  {user?.role === 'admin' ? 'Team performance insights over the last 6 months' : 'Your performance insights over the last 6 months'}
+                  {(user?.role === 'admin' || user?.role === 'manager') ? 'Team performance insights over the last 6 months' : 'Your performance insights over the last 6 months'}
                 </p>
               </div>
             </div>
             
             <div className="flex items-center space-x-4">
               {/* Team Member Selector - Only show for admin users */}
-              {user?.role === 'admin' && teamMembersList.length > 0 && (
+              {(user?.role === 'admin' || user?.role === 'manager') && teamMembersList.length > 0 && (
                 <div className="relative z-10">
                   <button
                     onClick={() => setShowTeamMemberFilter(!showTeamMemberFilter)}
@@ -1305,7 +1305,7 @@ const Dashboard: React.FC = () => {
           </div>
           
           {/* Selected Member Info Banner */}
-          {user?.role === 'admin' && selectedTeamMember !== 'all' && (
+          {(user?.role === 'admin' || user?.role === 'manager') && selectedTeamMember !== 'all' && (
             <div className="mb-6 p-4 rounded-2xl border border-[var(--color-primary)]/30" style={{ backgroundColor: 'var(--color-primary)05' }}>
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 rounded-2xl bg-gradient-to-r from-blue-400 to-purple-600 flex items-center justify-center text-white font-bold">
@@ -1494,7 +1494,7 @@ const Dashboard: React.FC = () => {
         </ThemeCard>
 
         {/* Recent Activity - Only show for non-admin users in 3-column layout */}
-        {user?.role !== 'admin' && (
+        {(user?.role !== 'admin' && user?.role !== 'manager') && (
           <ThemeCard className="p-8 xl:col-span-3" variant="glass">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
               <div className="flex items-center space-x-3">
@@ -1556,7 +1556,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Team Performance & Recent Activity for Admin */}
-      {user?.role === 'admin' && (
+      {(user?.role === 'admin' || user?.role === 'manager') && (
         <div className="grid grid-cols-1 xl:grid-cols-10 gap-8">
           {dashboardData?.teamPerformance && dashboardData.teamPerformance.length > 0 && (
             <ThemeCard className="p-8 xl:col-span-7" variant="glass">
